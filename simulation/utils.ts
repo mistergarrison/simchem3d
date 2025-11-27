@@ -1,13 +1,76 @@
 
-
-
-import { Atom } from '../types';
+import { Atom, SimulationEvent } from '../types';
+import { ELEMENTS } from '../elements';
 
 /**
  * simulation/utils.ts
  * 
  * Pure utility functions for Geometry, Graph Traversal, and basic Bond management.
  */
+
+// --- WORLD MANAGEMENT HELPERS ---
+
+/**
+ * Standardized way to add an atom to the simulation.
+ * Ensures the event is logged for system tests.
+ */
+export const addAtomToWorld = (
+    atoms: Atom[], 
+    atom: Atom, 
+    eventLog: SimulationEvent[] | undefined, 
+    reason: string = 'Spawn'
+) => {
+    atoms.push(atom);
+    if (eventLog) {
+        eventLog.push({
+            type: 'create',
+            atomId: atom.id,
+            label: atom.element.s,
+            reason: reason,
+            timestamp: Date.now()
+        });
+        // Keep log size manageable
+        if (eventLog.length > 200) eventLog.shift();
+    }
+};
+
+/**
+ * Standardized way to remove an atom from the simulation.
+ * Supports removal by Index (fast, inside loops) or Object (safer).
+ */
+export const removeAtomFromWorld = (
+    atoms: Atom[], 
+    atomOrIndex: Atom | number, 
+    eventLog: SimulationEvent[] | undefined, 
+    reason: string
+) => {
+    let atom: Atom | undefined;
+    let index: number;
+
+    if (typeof atomOrIndex === 'number') {
+        index = atomOrIndex;
+        atom = atoms[index];
+    } else {
+        atom = atomOrIndex;
+        index = atoms.indexOf(atom);
+    }
+
+    if (index > -1 && atom) {
+        atoms.splice(index, 1);
+        if (eventLog) {
+            eventLog.push({
+                type: 'destroy',
+                atomId: atom.id,
+                label: atom.element.s,
+                reason: reason,
+                timestamp: Date.now()
+            });
+            if (eventLog.length > 200) eventLog.shift();
+        }
+    }
+};
+
+// --- GEOMETRY ---
 
 /**
  * Rotates a point (x, z) around a center (cx, cz) by angle theta.
@@ -25,12 +88,6 @@ export const rotatePoint = (x: number, z: number, cx: number, cz: number, theta:
 
 /**
  * Calculates the optimal rotation to align a molecule's "Flattest Face" to the camera.
- * 
- * Strategy:
- * 1. Compute Covariance Matrix.
- * 2. Find the Eigenvector with the Smallest Eigenvalue (The Normal Vector).
- * 3. Calculate rotation to align this Normal with the Z-axis (0,0,1).
- * 4. If already aligned (angle < threshold), return null to prevent jitter.
  */
 export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) => {
     const group = atoms.filter(a => groupIds.has(a.id));
@@ -63,7 +120,6 @@ export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) =
     });
 
     // 3. Find Primary Axis (Largest Eigenvalue) via Power Iteration
-    // This is the "Length" of the molecule.
     let v1 = { x: 1, y: 1, z: 1 };
     for(let i=0; i<8; i++) {
         v1 = mult(v1);
@@ -73,10 +129,8 @@ export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) =
     }
 
     // 4. Find Secondary Axis (2nd Largest) 
-    // Project data onto plane orthogonal to v1 and iterate
-    let v2 = { x: -v1.y, y: v1.z, z: v1.x }; // Arbitrary start orthogonal-ish
+    let v2 = { x: -v1.y, y: v1.z, z: v1.x }; 
     for(let i=0; i<8; i++) {
-        // Gram-Schmidt orthogonalization to remove V1 component
         const dot = v2.x*v1.x + v2.y*v1.y + v2.z*v1.z;
         v2.x -= dot*v1.x; v2.y -= dot*v1.y; v2.z -= dot*v1.z;
         
@@ -87,43 +141,32 @@ export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) =
     }
 
     // 5. Calculate Normal Vector (V3) via Cross Product (V1 x V2)
-    // This represents the "Thinnest" dimension of the molecule.
     let normal = {
         x: v1.y*v2.z - v1.z*v2.y,
         y: v1.z*v2.x - v1.x*v2.z,
         z: v1.x*v2.y - v1.y*v2.x
     };
     let nMag = Math.sqrt(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z);
-    if (nMag < 1e-6) return null; // Degenerate geometry
+    if (nMag < 1e-6) return null; 
     normal.x /= nMag; normal.y /= nMag; normal.z /= nMag;
 
-    // 6. Orient Normal towards Camera (Z+)
-    // If normal points away (Z negative), flip it.
     if (normal.z < 0) {
         normal.x = -normal.x; normal.y = -normal.y; normal.z = -normal.z;
     }
 
-    // 7. Calculate Rotation to align Normal with (0,0,1)
-    // We want to rotate Normal -> Z_Axis
-    // Axis of rotation = Normal x Z_Axis
     const axis = {
-        x: normal.y * 1 - normal.z * 0, // normal.y
-        y: normal.z * 0 - normal.x * 1, // -normal.x
-        z: normal.x * 0 - normal.y * 0  // 0 -> Axis is in XY plane (Tilt only)
+        x: normal.y * 1 - normal.z * 0, 
+        y: normal.z * 0 - normal.x * 1, 
+        z: normal.x * 0 - normal.y * 0  
     };
     
     const axisMag = Math.sqrt(axis.x*axis.x + axis.y*axis.y + axis.z*axis.z);
+    const dotZ = normal.z; 
     
-    // Stability Check: If axis is tiny, we are already aligned.
-    // Angle = acos(normal.z). If normal.z ~ 1, angle ~ 0.
-    const dotZ = normal.z; // since Z-axis is (0,0,1)
-    
-    // Threshold: ~15 degrees (cos(15) ~= 0.96)
     if (dotZ > 0.96 || axisMag < 1e-3) {
-        return null; // Already facing camera, don't move
+        return null; 
     }
 
-    // Normalize axis
     axis.x /= axisMag; axis.y /= axisMag; axis.z /= axisMag;
     
     const angle = Math.acos(Math.max(-1, Math.min(1, dotZ)));
@@ -136,18 +179,12 @@ export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) =
 
 /**
  * Ray Casting Algorithm for Point-in-Polygon testing.
- * Used by the Lasso selection tool.
- * 
- * @param p The point to test
- * @param polygon The array of points defining the polygon boundary
- * @returns true if point p is inside the polygon
  */
 export const isPointInPolygon = (p: {x: number, y: number}, polygon: {x: number, y: number}[]) => {
     let isInside = false;
     let minX = polygon[0].x, maxX = polygon[0].x;
     let minY = polygon[0].y, maxY = polygon[0].y;
     
-    // Optimization: Bounding Box check first
     for (let i = 1; i < polygon.length; i++) {
         const q = polygon[i];
         minX = Math.min(q.x, minX);
@@ -157,7 +194,6 @@ export const isPointInPolygon = (p: {x: number, y: number}, polygon: {x: number,
     }
     if (p.x < minX || p.x > maxX || p.y < minY || p.y > maxY) return false;
 
-    // Ray Casting: Count intersections with polygon edges
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         if (((polygon[i].y > p.y) !== (polygon[j].y > p.y)) &&
             (p.x < (polygon[j].x - polygon[i].x) * (p.y - polygon[i].y) / (polygon[j].y - polygon[i].y) + polygon[i].x)) {
@@ -169,11 +205,6 @@ export const isPointInPolygon = (p: {x: number, y: number}, polygon: {x: number,
 
 /**
  * Breadth-First Search (BFS) to find all atoms connected to a starting atom.
- * Used to identify whole molecules for dragging or deletion.
- * 
- * @param allAtoms The complete list of atoms in the simulation
- * @param startId The ID of the atom to start traversal from
- * @returns A Set containing the IDs of all connected atoms
  */
 export const getMoleculeGroup = (allAtoms: Atom[], startId: string): Set<string> => {
     const group = new Set<string>();
@@ -195,22 +226,101 @@ export const getMoleculeGroup = (allAtoms: Atom[], startId: string): Set<string>
     return group;
 };
 
+/**
+ * Distributes the total net charge of a molecule equally among its constituent atoms.
+ * This mimics the delocalization of charge in covalent structures.
+ */
+export const redistributeCharge = (allAtoms: Atom[], startId: string) => {
+    const groupIds = getMoleculeGroup(allAtoms, startId);
+    if (groupIds.size === 0) return;
+
+    let totalCharge = 0;
+    const groupAtoms: Atom[] = [];
+
+    // 1. Calculate Net Charge
+    groupIds.forEach(id => {
+        const a = allAtoms.find(at => at.id === id);
+        if (a) {
+            groupAtoms.push(a);
+            totalCharge += (a.charge || 0);
+        }
+    });
+
+    // 2. Redistribute & Stabilize
+    let avgCharge = totalCharge / groupAtoms.length;
+
+    // [CRITICAL DEBUG] Charge Sanity Check
+    if (isNaN(avgCharge) || !isFinite(avgCharge)) {
+        console.error(`[PHYSICS CRITICAL] Charge Redistribution Failed: Result is NaN/Infinite for group near ${startId}. Resetting to 0.`);
+        avgCharge = 0;
+    }
+
+    // --- ERROR CORRECTION FOR ISOLATED ATOMS ---
+    // If an atom is isolated (no bonds), it MUST have an integer charge.
+    // Partial charges (e.g., 0.33) are only valid for delocalized molecular groups.
+    if (groupAtoms.length === 1) {
+        if (Math.abs(avgCharge - Math.round(avgCharge)) > 0.01) {
+            console.error(`[PHYSICS ERROR] Isolated atom ${groupAtoms[0].element.s} has illegal partial charge: ${avgCharge}. Snapping to nearest integer.`);
+            avgCharge = Math.round(avgCharge);
+        }
+    } else {
+        // For molecules, round to 2 decimal places to prevent floating point drift (e.g., 0.3333333)
+        avgCharge = Math.round(avgCharge * 100) / 100;
+    }
+
+    // 3. Apply & Update Properties
+    let debugSum = 0;
+    groupAtoms.forEach(a => {
+        a.charge = avgCharge;
+        debugSum += avgCharge;
+
+        // DYNAMIC RADIUS UPDATE:
+        if (a.element.z === 1) {
+            // Hydrogen/Proton logic
+            const isBareProton = (a.mass < 1.6 && (a.charge || 0) >= 1);
+            if (isBareProton) {
+                a.radius = 20;
+            } else {
+                // Neutral Hydrogen or Hydride -> Puff up
+                a.radius = 30 + Math.pow(a.mass, 0.33) * 10;
+            }
+        } else if (a.element.z === 0) {
+            // Neutron
+            a.radius = 20;
+        } else if (a.element.z === -1) {
+            // Electron
+            a.radius = 30;
+        } else {
+            // Standard Atoms
+            a.radius = 30 + Math.pow(a.mass, 0.33) * 10;
+        }
+    });
+
+    // Conservation Check
+    if (Math.abs(debugSum - totalCharge) > 0.1) {
+        console.warn(`[PHYSICS WARNING] Charge Conservation Drift: Start=${totalCharge}, End=${debugSum}`);
+    }
+};
+
 // --- Bond Management Helpers ---
 
-/**
- * Establishes a bond between two atoms.
- * Updates the bond lists of both atoms.
- */
 export const addBond = (a: Atom, b: Atom) => {
+    // Convert Protons to Hydrogen context when they bond
+    // This ensures they render as white Hydrogen atoms (H) instead of red Protons (p+)
+    if (a.element.z === 1 && a.element.s === 'p⁺') {
+        a.element = ELEMENTS[0]; // H
+        // Re-calc radius immediately to prevent visual popping
+        a.radius = 30 + Math.pow(a.mass, 0.33) * 10;
+    }
+    if (b.element.z === 1 && b.element.s === 'p⁺') {
+        b.element = ELEMENTS[0]; // H
+        b.radius = 30 + Math.pow(b.mass, 0.33) * 10;
+    }
+
     a.bonds.push(b.id);
     b.bonds.push(a.id);
 };
 
-/**
- * Completely severs the connection between atom A and atom B.
- * Removes ALL bonds (Single, Double, or Triple) between them.
- * @returns true if bonds were actually removed.
- */
 export const breakBond = (allAtoms: Atom[], a: Atom, bId: string): boolean => {
     const startLen = a.bonds.length;
     a.bonds = a.bonds.filter(id => id !== bId);
@@ -226,32 +336,46 @@ export const breakBond = (allAtoms: Atom[], a: Atom, bId: string): boolean => {
     return a.bonds.length !== startLen || bChanged;
 };
 
-/**
- * Decreases bond order by 1 (e.g., Triple -> Double).
- * Used during high-energy impacts where a bond might be partially broken.
- * @returns true if a bond was removed, false if none existed.
- */
-export const decrementBond = (allAtoms: Atom[], a: Atom, bId: string) => {
-    const indexA = a.bonds.indexOf(bId);
-    if (indexA > -1) {
-        a.bonds.splice(indexA, 1);
-        const b = allAtoms.find(at => at.id === bId);
-        if (b) {
-            const indexB = b.bonds.indexOf(a.id);
-            if (indexB > -1) b.bonds.splice(indexB, 1);
-        }
-        return true;
-    }
-    return false;
-};
-
-/**
- * Calculates the Bond Order (1=Single, 2=Double, 3=Triple) between atom A and target ID.
- */
 export const getBondOrder = (a: Atom, bId: string) => {
     let count = 0;
     for (const id of a.bonds) {
         if (id === bId) count++;
     }
     return count;
+};
+
+/**
+ * Scans bonds on an atom and removes any that are physically impossible (Ghost Bonds).
+ * This fixes bugs where atoms drift apart but remain logically bonded, sharing partial charges.
+ */
+export const pruneGhostBonds = (atoms: Atom[], a: Atom) => {
+    let changed = false;
+    // Iterate backwards so we can safely remove
+    for (let i = a.bonds.length - 1; i >= 0; i--) {
+        const bId = a.bonds[i];
+        const b = atoms.find(x => x.id === bId);
+        
+        // 1. Partner missing?
+        if (!b) {
+            a.bonds.splice(i, 1);
+            changed = true;
+            continue;
+        }
+
+        // 2. Partner too far? (Ghost Bond)
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dz = b.z - a.z;
+        const distSq = dx*dx + dy*dy + dz*dz;
+        // Hard limit: 500px squared. Physical bonds snap at 5x rest (~250px), so 500 is a safe safety net.
+        if (distSq > 500 * 500) {
+            // Force Break
+            breakBond(atoms, a, b.id);
+            changed = true;
+        }
+    }
+    
+    if (changed) {
+        redistributeCharge(atoms, a.id);
+    }
 };

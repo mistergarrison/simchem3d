@@ -1,12 +1,14 @@
 
 import React from 'react';
-import { ElementData } from '../types';
+import { ElementData, GameMode } from '../types';
 import { ELEMENTS } from '../elements';
 
 interface PeriodicTableProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (element: ElementData) => void;
+  gameMode: GameMode;
+  discoveredElements: Set<number>;
 }
 
 /**
@@ -30,7 +32,7 @@ interface PeriodicTableProps {
  *    - Clicking any element sets it as the active selection for the Sidebar palette.
  *    - It serves as the primary way to access elements not in the default quick-palette.
  */
-const PeriodicTable: React.FC<PeriodicTableProps> = ({ isOpen, onClose, onSelect }) => {
+const PeriodicTable: React.FC<PeriodicTableProps> = ({ isOpen, onClose, onSelect, gameMode, discoveredElements }) => {
   if (!isOpen) return null;
 
   /**
@@ -97,7 +99,7 @@ const PeriodicTable: React.FC<PeriodicTableProps> = ({ isOpen, onClose, onSelect
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-white">Select Element</h2>
+          <h2 className="text-2xl font-bold text-white">Select Element {gameMode === 'discovery' && <span className="text-sm font-normal text-purple-400 ml-2">(Discovery Mode)</span>}</h2>
           <button 
             onClick={onClose}
             className="text-gray-400 hover:text-white text-2xl"
@@ -119,30 +121,40 @@ const PeriodicTable: React.FC<PeriodicTableProps> = ({ isOpen, onClose, onSelect
         >
           {ELEMENTS.map((el) => {
             const pos = getGridPos(el.z);
+            const isLocked = gameMode === 'discovery' && !discoveredElements.has(el.z);
+
             return (
               <button
                 key={el.z}
-                onClick={() => { onSelect(el); onClose(); }}
-                className="relative p-1 border border-gray-700 hover:border-white hover:z-10 transition-all duration-150 flex flex-col items-center justify-center h-16 sm:h-20 bg-gray-800 text-white group"
+                disabled={isLocked}
+                onClick={() => { if (!isLocked) { onSelect(el); onClose(); } }}
+                className={`relative p-1 border transition-all duration-150 flex flex-col items-center justify-center h-16 sm:h-20 group
+                    ${isLocked 
+                        ? 'bg-gray-900 border-gray-800 opacity-40 cursor-not-allowed' 
+                        : 'bg-gray-800 border-gray-700 hover:border-white hover:z-10 cursor-pointer'
+                    }
+                `}
                 style={{
                     gridColumnStart: pos.col,
                     gridRowStart: pos.row,
-                    backgroundColor: 'rgba(31, 41, 55, 0.5)'
+                    backgroundColor: isLocked ? 'rgba(10, 10, 15, 0.8)' : 'rgba(31, 41, 55, 0.5)'
                 }}
               >
                 {/* Visual Flair: Element Category Color Overlay */}
                 <div 
-                    className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity"
+                    className={`absolute inset-0 transition-opacity ${isLocked ? 'opacity-5' : 'opacity-20 group-hover:opacity-40'}`}
                     style={{ backgroundColor: el.c }}
                 />
                 
                 {/* Data Display */}
-                <span className="text-xs sm:text-sm font-bold relative z-10">{el.z}</span>
-                <span className="text-sm sm:text-xl font-extrabold relative z-10" style={{color: el.c}}>{el.s}</span>
-                <span className="text-[8px] sm:text-[10px] truncate max-w-full relative z-10 opacity-70">{el.n}</span>
+                <span className="text-xs sm:text-sm font-bold relative z-10" style={{ color: isLocked ? '#555' : '#fff' }}>{el.z}</span>
+                <span className="text-sm sm:text-xl font-extrabold relative z-10" style={{color: isLocked ? '#555' : el.c}}>{el.s}</span>
+                {!isLocked && <span className="text-[8px] sm:text-[10px] truncate max-w-full relative z-10 opacity-70">{el.n}</span>}
                 
                 {/* Valency Indicator */}
-                <span className="absolute bottom-1 right-1 text-[8px] text-gray-400 opacity-50 z-10">V:{el.v}</span>
+                {!isLocked && <span className="absolute bottom-1 right-1 text-[8px] text-gray-400 opacity-50 z-10">V:{el.v}</span>}
+                
+                {isLocked && <span className="absolute inset-0 flex items-center justify-center text-gray-600 opacity-50">🔒</span>}
               </button>
             );
           })}

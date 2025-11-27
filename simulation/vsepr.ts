@@ -29,12 +29,12 @@ export const getTargetCosine = (bondCount: number, lp: number) => {
     if (domains === 2) return -1.0; 
     if (domains === 3) {
         if (lp === 0) return -0.5; 
-        return -0.48; 
+        return -0.48; // ~118 degrees (Ozone, SO2)
     }
     if (domains === 4) {
         if (lp === 0) return -0.333;
         if (lp === 1) return -0.29; 
-        return -0.25; 
+        return -0.25; // ~104.5 degrees (Water)
     }
     if (domains >= 5) return 0; 
     return -1.0 / (bondCount - 1);
@@ -58,7 +58,13 @@ export const applyVSEPR = (atoms: Atom[], dragGroup: Set<string> | null) => {
         const Ve = getValenceElectrons(center.element.z);
         if (Ve === null) continue;
 
-        const electronsFree = Ve - bondCount; 
+        // Electron Counting Fix: 
+        // VSEPR Domains = Neighbors (Sigma bonds) + Lone Pairs.
+        // Lone Pairs = (ValenceElectrons - ElectronsUsedInBonding) / 2.
+        // ElectronsUsedInBonding ~= Total Bond Count (including double/triple).
+        // center.bonds contains duplicate IDs for double bonds, so center.bonds.length is the total bond order sum.
+        const electronsUsed = center.bonds.length;
+        const electronsFree = Ve - electronsUsed; 
         let lp = Math.max(0, Math.floor(electronsFree / 2));
         
         const targetCos = getTargetCosine(bondCount, lp);
@@ -105,7 +111,18 @@ export const applyVSEPR = (atoms: Atom[], dragGroup: Set<string> | null) => {
 
                 // Force Magnitude
                 // If diff > 0, angle is too small (cos is too large), push apart.
-                const strength = ANGULAR_STIFFNESS * diff;
+                
+                // GRADUATED STIFFNESS:
+                // During formation (Cooling), we want the molecule to be "Floppy" so it can 
+                // untangle itself without fighting rigid angular constraints.
+                // As cooldown decays (1.0 -> 0.0), stiffness ramps up (0.1 -> 1.0).
+                let stiffnessMult = 1.0;
+                if ((center.cooldown || 0) > 0) {
+                    // Linear Ramp: Cooldown 1.0 = 0.1 stiffness. Cooldown 0.0 = 1.0 stiffness.
+                    stiffnessMult = 0.1 + (1.0 - (center.cooldown || 0)) * 0.9;
+                }
+
+                const strength = ANGULAR_STIFFNESS * stiffnessMult * diff;
 
                 const fx = (n1x - n2x) * strength;
                 const fy = (n1y - n2y) * strength;

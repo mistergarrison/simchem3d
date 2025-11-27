@@ -1,20 +1,24 @@
 
-
-/**
- * simulation/types.ts
- * 
- * Defines the shared state shapes used across the physics engine, renderer, 
- * and input handlers.
- */
+import { Molecule } from '../types';
 
 export interface FloatingLabel {
     id: string;          // Unique ID (typically sorted joined atom IDs)
     text: string;        // Display text
     targetId: string;    // Anchor atom ID
-    atomIds: Set<string>; // Atoms involved (for validity checking)
+    atomIds: Set<string>; // Atoms involved (used for validity checking)
     life: number;        // Frames remaining
     maxLife: number;     // Total frames
     fadeDuration: number; // Number of frames at the end of life to fade out
+}
+
+export interface ClearanceState {
+    active: boolean;
+    cx: number;
+    cy: number;
+    maxRadius: number;
+    life: number;
+    maxLife: number;
+    molecule: Molecule | null;
 }
 
 /**
@@ -39,6 +43,11 @@ export interface MouseState {
     dragId: string | null;     // ID of the atom currently being dragged
     hoverId: string | null;    // ID of the atom currently under the cursor
     dragName: string | null;   // Name of the molecule currently being dragged (if recognized)
+    
+    // Energy Tool State
+    energyActive: boolean;
+    energyValue: number;       // Current MeV accumulated
+    energyTarget: number | null; // Nearest target (visual feedback)
     
     // --- DRAG ANCHOR ---
     // Stores the offset between the mouse position and the atom's center at the moment of click.
@@ -69,6 +78,9 @@ export interface MouseState {
         startRadius?: number,  // Initial radius of the visual halo
         visualOnly?: boolean   // If true, draws the halo but applies no physics force
     } | null;
+
+    // Clearance Phase State (Pushing atoms away before spawn)
+    clearance: ClearanceState | null;
 
     // --- AUTO ROTATION ---
     // Animation state for rotating the molecule to the best viewing angle

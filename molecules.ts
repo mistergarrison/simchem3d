@@ -331,7 +331,7 @@ export const MOLECULES: Molecule[] = [
         id: 'c4h10o', name: 'Diethyl Ether', formula: '(C₂H₅)₂O', ingredients: [{z:6, count:4}, {z:1, count:10}, {z:8, count:1}],
         structure: {
             // Chain: C(0)-C(1)-O(2)-C(3)-C(4)
-            atoms: [6, 6, 8, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
+            atoms: [6, 6, 8, 6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // Corrected to 15 atoms
             bonds: [
                 [0, 1, 1], [1, 2, 1], [2, 3, 1], [3, 4, 1], // Backbone
                 [0, 5, 1], [0, 6, 1], [0, 7, 1], // C0 Methyl H
