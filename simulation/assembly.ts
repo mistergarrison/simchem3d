@@ -7,174 +7,225 @@ import { FloatingLabel } from './types';
 import { addBond, debugWarn } from './utils';
 import { ForceDirectedLayout } from './algorithms/ForceDirectedLayout';
 
+/**
+ * Takes a soup of atoms and tries to form as many valid molecules as possible.
+ * Prioritizes complex (large) molecules first.
+ * Assigns ejection velocities to separate the resulting groups.
+ */
 export const resolveMolecularAssembly = (
     atoms: Atom[], 
     floatingLabels: FloatingLabel[], 
     subset: Set<string>, 
     particles: Particle[], 
     mouse?: MouseState,
-    forcedCenter?: {x: number, y: number, z: number}
+    forcedCenter?: {x: number, y: number, z: number},
+    initialVelocity?: {vx: number, vy: number, vz: number}
 ) => {
-    debugWarn(`[Assembly] resolveMolecularAssembly triggered for ${subset.size} atoms.`);
-    
+    // 1. Identify atoms
     const group = atoms.filter(a => subset.has(a.id));
     if (group.length === 0) return;
 
+    // 2. Center of Mass
     let cx = 0, cy = 0, cz = 0;
-    
     if (forcedCenter) {
-        if (isFinite(forcedCenter.x) && isFinite(forcedCenter.y)) {
-            cx = forcedCenter.x; cy = forcedCenter.y; cz = forcedCenter.z;
-        }
+        cx = forcedCenter.x; cy = forcedCenter.y; cz = forcedCenter.z;
     } else {
-        let validCount = 0;
-        group.forEach(a => { 
-            if(isFinite(a.x) && isFinite(a.y) && isFinite(a.z)) {
-                cx += a.x; cy += a.y; cz += a.z;
-                validCount++;
-            }
-        });
-        if (validCount > 0) { cx /= validCount; cy /= validCount; cz /= validCount; }
+        group.forEach(a => { cx += a.x; cy += a.y; cz += a.z; });
+        cx /= group.length; cy /= group.length; cz /= group.length;
     }
 
-    const availableIds = new Set(group.map(a => a.id));
-    const sortedRecipes = [...MOLECULES].sort((a,b) => 
-        b.ingredients.reduce((acc, i) => acc + i.count, 0) - 
-        a.ingredients.reduce((acc, i) => acc + i.count, 0)
-    );
+    const results: { type: 'molecule' | 'loose', atoms: Atom[], data?: Molecule }[] = [];
+    const availablePool = [...group]; // Array of atoms
 
-    for (const recipe of sortedRecipes) {
-        const potentialIds: string[] = [];
-        let possible = true;
+    // --- STRATEGY 1: Exact Single-Molecule Match ---
+    // If the entire selection perfectly matches one formula, build it directly.
+    const groupComposition = new Map<number, number>();
+    for (const a of group) {
+        groupComposition.set(a.element.z, (groupComposition.get(a.element.z) || 0) + 1);
+    }
 
+    const exactMatch = MOLECULES.find(recipe => {
+        if (recipe.ingredients.length !== groupComposition.size) return false;
         for (const ing of recipe.ingredients) {
-            const matches = group.filter(a => availableIds.has(a.id) && a.element.z === ing.z && !potentialIds.includes(a.id));
-            if (matches.length >= ing.count) {
-                matches.slice(0, ing.count).forEach(m => potentialIds.push(m.id));
-            } else {
-                possible = false;
-                break;
-            }
+            if (groupComposition.get(ing.z) !== ing.count) return false;
         }
+        return true;
+    });
 
-        if (possible && recipe.structure) {
-            debugWarn(`[Assembly] Matched recipe: ${recipe.name}`);
-            
-            // 1. Calculate Ideal Topology Layout
-            let idealPositions: {x: number, y: number, z: number}[] = [];
-            try {
-                const layoutSolver = new ForceDirectedLayout(recipe.structure.atoms, recipe.structure.bonds);
-                idealPositions = layoutSolver.solve();
-                // Approximate bounding box width for logging
-                const xs = idealPositions.map(p => p.x);
-                const width = Math.max(...xs) - Math.min(...xs);
-                debugWarn(`[Layout] Solved width: ${width.toFixed(1)}px`);
-            } catch (e) {
-                console.error(`[Assembly] Layout solver crashed for ${recipe.name}. Using zero-fallback.`, e);
-                idealPositions = recipe.structure.atoms.map(() => ({x: 0, y: 0, z: 0}));
-            }
-            
-            // 2. Greedy Spatial Assignment
-            debugWarn(`[Assembly] Assigning ${group.length} atoms to ${recipe.name} structure.`);
-            const assignedAtoms: (Atom | null)[] = new Array(recipe.structure.atoms.length).fill(null);
-            const usedInStruct = new Set<string>();
-            const candidates = group.filter(a => potentialIds.includes(a.id));
-            
-            recipe.structure.atoms.forEach((requiredZ, slotIdx) => {
-                const relPos = idealPositions[slotIdx];
-                if (!isFinite(relPos.x) || !isFinite(relPos.y) || !isFinite(relPos.z)) {
-                    relPos.x = 0; relPos.y = 0; relPos.z = 0;
-                }
+    if (exactMatch) {
+        results.push({ type: 'molecule', atoms: availablePool, data: exactMatch });
+        // Pool is effectively empty now for next steps
+    } else {
+        // --- STRATEGY 2: Greedy Soup Solver (Fallback) ---
+        // Prioritize by iterating MOLECULES in order (assuming standard molecules first)
+        for (const recipe of MOLECULES) {
+            let keepMaking = true;
+            while (keepMaking) {
+                // Check if we have ingredients
+                const usedIndices: number[] = [];
+                let possible = true;
 
-                const targetX = cx + relPos.x;
-                const targetY = cy + relPos.y;
-                const targetZ = cz + relPos.z;
-
-                let bestAtom: Atom | null = null;
-                let minDistSq = Infinity;
-
-                for (const atom of candidates) {
-                    if (usedInStruct.has(atom.id)) continue;
-                    if (atom.element.z !== requiredZ) continue;
-
-                    const dx = atom.x - targetX;
-                    const dy = atom.y - targetY;
-                    const dz = atom.z - targetZ;
-                    const dSq = dx*dx + dy*dy + dz*dz;
-
-                    if (dSq < minDistSq) {
-                        minDistSq = dSq;
-                        bestAtom = atom;
+                for (const ing of recipe.ingredients) {
+                    let countNeeded = ing.count;
+                    // Find atoms in pool that match Z and are not used yet for this instance
+                    for (let i = 0; i < availablePool.length; i++) {
+                        if (countNeeded === 0) break;
+                        if (!usedIndices.includes(i) && availablePool[i].element.z === ing.z) {
+                            usedIndices.push(i);
+                            countNeeded--;
+                        }
+                    }
+                    if (countNeeded > 0) {
+                        possible = false;
+                        break;
                     }
                 }
 
-                if (bestAtom) {
-                    assignedAtoms[slotIdx] = bestAtom;
-                    usedInStruct.add(bestAtom.id);
-                }
-            });
+                if (possible && usedIndices.length > 0) {
+                    // Construct Molecule
+                    const componentAtoms = usedIndices.map(idx => availablePool[idx]);
+                    // Remove from pool
+                    const compIds = new Set(componentAtoms.map(a => a.id));
+                    for(let i = availablePool.length - 1; i >= 0; i--) {
+                        if (compIds.has(availablePool[i].id)) {
+                            availablePool.splice(i, 1);
+                        }
+                    }
 
-            potentialIds.forEach(id => availableIds.delete(id));
+                    results.push({ type: 'molecule', atoms: componentAtoms, data: recipe });
+                } else {
+                    keepMaking = false;
+                }
+            }
+        }
+
+        // Leftovers
+        availablePool.forEach(a => {
+            results.push({ type: 'loose', atoms: [a] });
+        });
+    }
+
+    // 4. Ejection & Layout
+    const n = results.length;
+    const angleStep = (Math.PI * 2) / Math.max(1, n);
+    
+    // Rule 1: Single molecule stays put (speed 0). Multiple molecules eject (speed 25).
+    const speed = n > 1 ? 25 : 0; 
+    
+    // Rule 2: Random initial angle to prevent deterministic directionality
+    const startAngle = Math.random() * Math.PI * 2;
+
+    results.forEach((res, i) => {
+        const angle = startAngle + i * angleStep;
+        let evx = Math.cos(angle) * speed;
+        let evy = Math.sin(angle) * speed;
+        let evz = 0;
+
+        // Apply "Throw" velocity if provided (Slingshot effect)
+        if (initialVelocity) {
+            evx += initialVelocity.vx;
+            evy += initialVelocity.vy;
+            evz += initialVelocity.vz;
+        }
+
+        const groupId = Math.floor(Math.random() * 10000000);
+
+        // Reset State
+        res.atoms.forEach(a => {
+            a.bonds = [];
+            // HOLD PHASE: Start stationary
+            a.vx = 0; a.vy = 0; a.vz = 0;
+            a.fx = 0; a.fy = 0; a.fz = 0;
             
-            // Cleanup Labels & Bonds
-            for (let i = floatingLabels.length - 1; i >= 0; i--) {
-                const label = floatingLabels[i];
-                if (potentialIds.some(pid => label.atomIds.has(pid))) floatingLabels.splice(i, 1);
+            // Store ejection velocity for Release Phase
+            a.destination = { x: evx, y: evy, z: evz };
+
+            a.isAssembling = true;
+            a.assemblyGroupId = groupId;
+            a.assemblyTimer = 0;
+            a.assemblyTimeOut = 300;
+            a.cooldown = 0; // Standard drag on release
+            
+            // Clear labels
+             for (let j = floatingLabels.length - 1; j >= 0; j--) {
+                const label = floatingLabels[j];
+                if (label.atomIds.has(a.id)) floatingLabels.splice(j, 1);
             }
+        });
 
-            // 3. Teleport & Initialize Physics Assembly
-            assignedAtoms.forEach((a, idx) => {
-                if(!a) return;
-                
-                // Reset Physics State
-                a.bonds = [];
-                a.vx = 0; a.vy = 0; a.vz = 0;
-                a.fx = 0; a.fy = 0; a.fz = 0;
+        if (res.type === 'molecule' && res.data && res.data.structure) {
+            // Run Layout
+            let offsets: {x:number, y:number, z:number}[] = [];
+            try {
+                const solver = new ForceDirectedLayout(res.data.structure.atoms, res.data.structure.bonds);
+                offsets = solver.solve();
+            } catch (e) { offsets = res.atoms.map(() => ({x:0, y:0, z:0})); }
 
-                const pos = idealPositions[idx];
-                const targetX = cx + pos.x;
-                const targetY = cy + pos.y;
-                const targetZ = cz + pos.z;
-
-                // TELEPORT TO STARTING TOPOLOGY
-                // We trust the ForceDirectedLayout to provide a non-tangled starting state.
-                a.x = targetX;
-                a.y = targetY;
-                a.z = targetZ;
-
-                // Set Assembly Flag
-                // This enables "Ghost Mode" against the world, but allows internal VSEPR forces to refine the shape.
-                a.isAssembling = true;
-                a.assemblyTimer = 0; 
-                a.assemblyTimeOut = 300; 
-                a.cooldown = 1.0; 
-                
-                // NOTE: We do NOT set a.destination anymore. 
-                // We rely on the layout + physics settling to handle the geometry.
-                a.destination = undefined; 
-            });
-
-            recipe.structure.bonds.forEach(([iA, iB, order]) => {
-                const a = assignedAtoms[iA];
-                const b = assignedAtoms[iB];
-                if (a && b) {
-                    for(let k=0; k<order; k++) addBond(a, b);
+            // Assign positions (Need to match Zs correctly)
+            // res.atoms is a bag. res.data.structure.atoms is an ordered list of Zs.
+            const assigned = new Array(res.atoms.length).fill(null);
+            const pool = [...res.atoms];
+            
+            res.data.structure.atoms.forEach((z, idx) => {
+                const matchIdx = pool.findIndex(a => a.element.z === z);
+                if (matchIdx !== -1) {
+                    assigned[idx] = pool[matchIdx];
+                    pool.splice(matchIdx, 1);
                 }
             });
 
-            if (mouse) {
-                mouse.moleculeTarget = { ids: potentialIds, cx, cy, startRadius: 300, visualOnly: true };
-                mouse.moleculeHaloLife = 60;
-                mouse.moleculeHaloMaxLife = 60;
-            }
+            assigned.forEach((a, idx) => {
+                if (a && offsets[idx]) {
+                    a.x = cx + offsets[idx].x;
+                    a.y = cy + offsets[idx].y;
+                    a.z = cz + offsets[idx].z;
+                }
+            });
 
+            // Rebond
+            res.data.structure.bonds.forEach(([iA, iB, order]) => {
+                if (assigned[iA] && assigned[iB]) {
+                    for(let k=0; k<order; k++) addBond(assigned[iA], assigned[iB]);
+                }
+            });
+
+            // Label
             floatingLabels.push({
-               id: potentialIds.sort().join('-'),
-               text: recipe.name,
-               targetId: potentialIds[0],
-               atomIds: new Set(potentialIds),
+               id: assigned.map(a => a.id).sort().join('-'),
+               text: res.data.name,
+               targetId: assigned[0].id,
+               atomIds: new Set(assigned.map(a => a.id)),
                life: 600, maxLife: 600, fadeDuration: 60
            });
+
+        } else {
+            // Loose
+            res.atoms.forEach(a => {
+                a.x = cx + (Math.random()-0.5)*20;
+                a.y = cy + (Math.random()-0.5)*20;
+                a.z = cz + (Math.random()-0.5)*20;
+                a.isAssembling = false; // Loose atoms don't need assembly mode
+                a.assemblyGroupId = undefined;
+                
+                // If loose, apply velocity immediately as they won't go through handleAssembly
+                if (initialVelocity) {
+                    a.vx = initialVelocity.vx;
+                    a.vy = initialVelocity.vy;
+                    a.vz = initialVelocity.vz;
+                }
+            });
         }
+    });
+
+    if (mouse) {
+        // Visual Halo for the whole group briefly
+        mouse.moleculeTarget = { 
+            ids: group.map(a => a.id), 
+            cx, cy, 
+            startRadius: 100, 
+            visualOnly: true 
+        };
+        mouse.moleculeHaloLife = 45;
+        mouse.moleculeHaloMaxLife = 45;
     }
 };

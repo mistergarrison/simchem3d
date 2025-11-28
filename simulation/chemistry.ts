@@ -1,4 +1,5 @@
 
+
 import { Atom, Particle, SimulationEvent } from '../types';
 import { MouseState } from './types';
 import { AnnealingLogic } from './annealing';
@@ -62,11 +63,17 @@ export const resolveInteractions = (
             if (!b) continue;
 
             // [ASSEMBLY PHYSICS]
-            // 1. If ONE is assembling and the other is NOT -> Ghost Mode (Ignore).
-            //    This allows new molecules to form inside/through existing clutter without explosion.
-            // 2. If BOTH are assembling -> Interact!
-            //    This allows the new molecule to self-organize (VSEPR/Bonds) while settling.
-            if (a.isAssembling !== b.isAssembling) continue;
+            // If EITHER is assembling, we enter strict isolation checks.
+            if (a.isAssembling || b.isAssembling) {
+                // 1. Ghosting against the World
+                // If one is assembling and the other is NOT, they ignore each other completely.
+                if (a.isAssembling !== b.isAssembling) continue;
+
+                // 2. Ghosting against Other Assemblies
+                // If BOTH are assembling, they only interact if they belong to the SAME group.
+                // This prevents multiple simultaneously forming molecules from exploding at the center.
+                if (a.assemblyGroupId !== b.assemblyGroupId) continue;
+            }
 
             // Skip interaction if both are part of the rigid drag group
             if (mouse.dragGroup.has(a.id) && mouse.dragGroup.has(b.id)) continue;

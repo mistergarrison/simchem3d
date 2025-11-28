@@ -1,4 +1,5 @@
 
+
 import { Atom, Particle, SimulationEvent } from '../types';
 import { ELEMENTS, NEUTRON_ELEM, ELECTRON_ELEM, getParticleElementData, SM_PARTICLES } from '../elements';
 import { MOLECULES } from '../molecules';
@@ -370,8 +371,6 @@ class SystemSuite {
         if (!poElem) throw new Error("Polonium not found in database");
 
         // Force an alpha decay scenario using a custom isotope
-        // This ensures the test validates the mechanic (Alpha Decay)
-        // regardless of whether the default isotope for the element is set to SF or Alpha.
         const atom: Atom = {
             id: 'test-alpha',
             x: cx, y: cy, z: 0,
@@ -501,6 +500,71 @@ class SystemSuite {
         this.onStatus("Spontaneous Fission Verified!", 'success');
     }
 
+    async testLassoBonding() {
+        this.resetBoard();
+        const { cx, cy } = this.getCenter();
+        console.log("TEST: 9. Lasso Bonding (4H + 2O -> H2O)");
+
+        // Spawn ingredients for 2 Water Molecules: 4 Hydrogen, 2 Oxygen
+        const atomsToSpawn: Atom[] = [];
+        
+        // 4 Hydrogens
+        for(let i=0; i<4; i++) {
+            atomsToSpawn.push({
+                id: `H-${i}`, x: cx + (Math.random()-0.5)*200, y: cy + (Math.random()-0.5)*200, z: 0,
+                vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0,
+                element: ELEMENTS[0], isotopeIndex: 0, bonds: [], mass: 1.008, radius: 30, charge: 0, createdAt: Date.now(), lastDecayCheck: Date.now()
+            });
+        }
+        
+        // 2 Oxygens
+        for(let i=0; i<2; i++) {
+            atomsToSpawn.push({
+                id: `O-${i}`, x: cx + (Math.random()-0.5)*200, y: cy + (Math.random()-0.5)*200, z: 0,
+                vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0,
+                element: ELEMENTS[7], isotopeIndex: 1, bonds: [], mass: 15.99, radius: 45, charge: 0, createdAt: Date.now(), lastDecayCheck: Date.now()
+            });
+        }
+
+        atomsToSpawn.forEach(a => addAtomToWorld(this.engine.atoms, a, this.engine.eventLog, 'Lasso Test Setup'));
+
+        // Trigger Lasso on all atoms
+        // We simulate the InputManager's logic by setting up the compression state directly
+        const selected = new Set(atomsToSpawn.map(a => a.id));
+        this.engine.mouse.compression = {
+            active: true,
+            atomIds: selected,
+            cx, cy,
+            currentRadius: 300,
+            minRadius: 100
+        };
+
+        // Wait for compression and assembly (Approx 2 seconds)
+        await this.waitFrames(120);
+
+        // Verify Results
+        // Should find 2 molecules identified as 'Water'
+        let waterCount = 0;
+        const processed = new Set<string>();
+
+        this.engine.atoms.forEach(a => {
+            if (processed.has(a.id)) return;
+            const group = getMoleculeGroup(this.engine.atoms, a.id);
+            const gAtoms = this.engine.atoms.filter(at => group.has(at.id));
+            const name = identifyMolecule(gAtoms);
+            
+            if (name === 'Water') waterCount++;
+            
+            group.forEach(gid => processed.add(gid));
+        });
+
+        if (waterCount !== 2) {
+            throw new Error(`Lasso Bonding Failed. Expected 2 Water molecules, found ${waterCount}.`);
+        }
+
+        this.onStatus("Lasso Bonding Verified! (2 H2O created)", 'success');
+    }
+
     public async run() {
         try {
             this.onStatus("Running Data Integrity Unit Tests...", 'info');
@@ -516,6 +580,7 @@ class SystemSuite {
             await this.testDecayChain();
             await this.testSpontaneousFission();
             await this.testAllPairProductions();
+            await this.testLassoBonding();
             
             this.onStatus("All Systems Operational!", 'success');
         } catch (e: any) {

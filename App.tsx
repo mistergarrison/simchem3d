@@ -82,6 +82,9 @@ const App: React.FC = () => {
   // Mobile layout state
   const [mobileBottomOffset, setMobileBottomOffset] = useState(150);
 
+  // Track Atom Count for Conditional UI
+  const [atomCount, setAtomCount] = useState(0);
+
   // --- PERSISTENCE ---
   useEffect(() => {
       saveUserConfig({
@@ -263,7 +266,7 @@ const App: React.FC = () => {
   }, [handleDiscovery]);
 
   const handleAtomCountChange = useCallback((count: number) => {
-      // Placeholder for potential future UI updates, currently no-op or debug
+      setAtomCount(count);
   }, []);
 
   // Computed Active Entity for Canvas
@@ -311,6 +314,7 @@ const App: React.FC = () => {
         debugMode={debugMode}
         onToggleDebugMode={() => setDebugMode(!debugMode)}
         onClearStorage={handleClearStorage}
+        hasObjects={atomCount > 0}
       />
       
       <main className="flex-grow h-full relative bg-neutral-950">

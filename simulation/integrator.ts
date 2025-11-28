@@ -1,4 +1,5 @@
 
+
 import { Atom, Particle } from '../types';
 import { DRAG_COEFF, MAX_SPEED, Z_BOUNDS } from './constants';
 import { getMoleculeGroup, debugWarn } from './utils';
@@ -46,14 +47,14 @@ export class Integrator {
                 debugWarn(`[Assembly] Atom ${a.element.s} (${a.id.slice(0,4)}) starting assembly phase.`);
             }
 
-            // Apply high viscosity damping to prevent explosion during initial settling
-            // This calms the violent springs from the initial layout.
-            const ASSEMBLY_DAMPING = 0.6;
-            a.vx *= ASSEMBLY_DAMPING;
-            a.vy *= ASSEMBLY_DAMPING;
-            a.vz *= ASSEMBLY_DAMPING;
-
             Integrator.handleAssembly(a, allAtoms, particles);
+
+            // If still assembling (Held), pin velocity
+            if (a.isAssembling) {
+                a.vx = 0; 
+                a.vy = 0; 
+                a.vz = 0;
+            }
         }
 
         const mass = a.mass || 1;
@@ -107,55 +108,46 @@ export class Integrator {
 
     private static handleAssembly(a: Atom, allAtoms: Atom[], particles: Particle[]) {
         a.assemblyTimer = (a.assemblyTimer || 0) + 1;
-        const MIN_HOLD_TICKS = 45; // 0.75 seconds
+        const MIN_HOLD_TICKS = 6; // 0.1s Hold @ 60fps
 
-        // 1. Check Group Status
-        // We only check stability if enough time has passed.
-        if ((a.assemblyTimer || 0) < MIN_HOLD_TICKS) return;
+        // 1. Hold Phase
+        if (a.assemblyTimer < MIN_HOLD_TICKS) return;
 
+        // 2. Release Phase (Release the whole group at once)
         const groupIds = getMoleculeGroup(allAtoms, a.id);
         const group: Atom[] = [];
-        let maxVel = 0;
+        let cx = 0, cy = 0, cz = 0;
 
         for(const id of groupIds) {
             const member = allAtoms.find(at => at.id === id);
             if(member) {
                 group.push(member);
-                const vSq = member.vx*member.vx + member.vy*member.vy + member.vz*member.vz;
-                if (vSq > maxVel) maxVel = vSq;
+                cx += member.x; cy += member.y; cz += member.z;
             }
         }
+        
+        if (group.length > 0) {
+            cx /= group.length; cy /= group.length; cz /= group.length;
+            // Big Flash
+            createExplosion(particles, cx, cy, cz, '#FFFFFF', 40);
+        }
 
-        // 2. Check Stability or Timeout
-        // Release if velocity is low (settled) OR timeout reached
-        const isStable = maxVel < 2.0; // Very slow movement
-        const isTimedOut = a.assemblyTimer! > (a.assemblyTimeOut || 300);
-
-        if (isStable || isTimedOut) {
-            if (isTimedOut && !isStable) {
-                debugWarn(`[Physics] Assembly Timeout - Forcing Release for Atom ${a.id.slice(0,4)}`);
-            }
-
-            // Trigger Release
-            if (group.length > 0 && group[0].id === a.id) {
-                debugWarn(`[Assembly Debug] RELEASE (Group ${a.id.slice(0,4)} Size: ${group.length})`);
-                
-                let cx = 0, cy = 0, cz = 0;
-                group.forEach(at => { cx += at.x; cy += at.y; cz += at.z; });
-                cx /= group.length; cy /= group.length; cz /= group.length;
-                
-                // Visual confirmation
-                createExplosion(particles, cx, cy, cz, '#00FFFF', 15);
-            }
-
-            // Release ALL atoms in the group simultaneously
-            for(const atom of group) {
-                atom.isAssembling = false;
+        // Release ALL atoms in the group simultaneously
+        for(const atom of group) {
+            atom.isAssembling = false;
+            atom.assemblyGroupId = undefined;
+            
+            // Apply Ejection Impulse
+            if (atom.destination) {
+                atom.vx = atom.destination.x;
+                atom.vy = atom.destination.y;
+                atom.vz = atom.destination.z;
                 atom.destination = undefined;
-                // High cooldown to transition smoothly to undamped physics
-                atom.cooldown = 0.5; 
-                atom.fx = 0; atom.fy = 0; atom.fz = 0;
             }
+            
+            // Low cooldown to preserve momentum (standard drag)
+            atom.cooldown = 0; 
+            atom.fx = 0; atom.fy = 0; atom.fz = 0;
         }
     }
 

@@ -57,12 +57,15 @@ export class SimulationEngine {
         dragAnchor: null, dragGroup: new Set(), dragOffsets: new Map(),
         isLassoing: false, lassoPoints: [],
         moleculeHaloLife: 0, moleculeHaloMaxLife: 0, moleculeTarget: null,
-        clearance: null, autoRotate: null, floatingLabels: []
+        clearance: null, compression: null, autoRotate: null, floatingLabels: []
     };
 
     isRunning: boolean = false;
     animationFrameId: number | null = null;
     frame: number = 0;
+    
+    // State tracking to prevent excessive React updates
+    private lastAtomCount: number = -1;
 
     constructor(canvas: HTMLCanvasElement, config: EngineConfig, callbacks: EngineCallbacks) {
         this.canvas = canvas;
@@ -325,6 +328,44 @@ export class SimulationEngine {
             applyVSEPR(this.atoms, this.mouse.dragGroup);
             const zForces = calculateZPlaneForces(this.atoms);
 
+            // Lasso Compression Logic
+            if (this.mouse.compression && this.mouse.compression.active) {
+                const c = this.mouse.compression;
+                c.currentRadius = Math.max(c.minRadius, c.currentRadius - 10); // Shrink speed
+                
+                // Pull atoms inward
+                this.atoms.forEach(a => {
+                    if (c.atomIds.has(a.id)) {
+                        const dx = c.cx - a.x;
+                        const dy = c.cy - a.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist > c.currentRadius) {
+                            // Centripetal force proportional to distance error
+                            const strength = 0.5;
+                            a.vx += (dx/dist) * strength * 5;
+                            a.vy += (dy/dist) * strength * 5;
+                            // Dampen existing velocity to prevent orbiting
+                            a.vx *= 0.8;
+                            a.vy *= 0.8;
+                        }
+                    }
+                });
+
+                if (c.currentRadius <= c.minRadius) {
+                    // Compression complete -> Trigger Assembly
+                    c.active = false;
+                    resolveMolecularAssembly(
+                        this.atoms,
+                        this.mouse.floatingLabels,
+                        c.atomIds,
+                        this.particles,
+                        this.mouse,
+                        { x: c.cx, y: c.cy, z: 0 }
+                    );
+                    this.mouse.compression = null;
+                }
+            }
+
             // Re-apply drag forces
             this.input.applyDragForces(); 
 
@@ -357,6 +398,8 @@ export class SimulationEngine {
                 // Capture the exact spawn coordinates from the clearance object
                 const spawnCx = this.mouse.clearance.cx;
                 const spawnCy = this.mouse.clearance.cy;
+                // Capture velocity BEFORE resolving
+                const spawnVelocity = this.mouse.clearance.velocity;
 
                 const newAtoms = resolveClearance(this.atoms, this.mouse, AtomFactory.create);
                 
@@ -381,7 +424,8 @@ export class SimulationEngine {
                         newIds, 
                         this.particles, 
                         this.mouse, 
-                        {x: spawnCx, y: spawnCy, z: 0}
+                        {x: spawnCx, y: spawnCy, z: 0},
+                        spawnVelocity
                     );
                 }
             }
@@ -389,6 +433,14 @@ export class SimulationEngine {
             // Periodic Discovery Check (Every ~1 second)
             if (this.frame % 60 === 0) {
                 this.checkForDiscoveries();
+            }
+            
+            // Report Atom Count Changes to React (if changed)
+            // Use atoms only, particles are usually transient visual effects
+            const currentCount = this.atoms.length;
+            if (currentCount !== this.lastAtomCount) {
+                this.lastAtomCount = currentCount;
+                this.callbacks.onAtomCountChange(currentCount);
             }
         }
 

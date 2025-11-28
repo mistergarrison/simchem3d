@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { SimulationEngine } from '../Engine';
 import { Viewport } from '../geometry/Viewport';
@@ -429,22 +430,47 @@ export class InputManager {
         
         const pointCount = mouse.lassoPoints.length;
         if (pointCount > 5) {
-            debugWarn(`[Input] Lasso finalized with ${pointCount} points.`);
             const selected = new Set<string>();
+            let cx = 0, cy = 0;
+            let count = 0;
+
             this.engine.atoms.forEach(a => {
                 // Project atom to screen to check if inside 2D Lasso polygon
                 const p = this.viewport.project(a.x, a.y, a.z, a.radius);
                 if (p && isPointInPolygon({x: p.x, y: p.y}, mouse.lassoPoints)) {
-                    selected.add(a.id);
+                    // Neutron Immunity: Lasso ignores Neutrons (Z=0)
+                    if (a.element.z !== 0) {
+                        selected.add(a.id);
+                        cx += a.x;
+                        cy += a.y;
+                        count++;
+                    }
                 }
             });
             
-            debugWarn(`[Input] Lasso selected ${selected.size} atoms.`);
             if (selected.size > 0) {
-                resolveMolecularAssembly(this.engine.atoms, mouse.floatingLabels, selected, this.engine.particles, mouse);
+                cx /= count;
+                cy /= count;
+
+                // Calculate max distance to set initial ring radius
+                let maxDist = 0;
+                this.engine.atoms.forEach(a => {
+                    if (selected.has(a.id)) {
+                        const dist = Math.sqrt((a.x-cx)**2 + (a.y-cy)**2);
+                        if (dist > maxDist) maxDist = dist;
+                    }
+                });
+
+                // Start Compression Phase
+                mouse.compression = {
+                    active: true,
+                    atomIds: selected,
+                    cx, cy,
+                    currentRadius: Math.max(maxDist + 50, 300), // Start slightly larger
+                    minRadius: 100 // Target compression
+                };
+                debugWarn(`[Input] Lasso Compression Started: ${count} atoms, R=${maxDist.toFixed(0)}->100`);
             }
-        } else {
-            debugWarn(`[Input] Lasso ignored: Too small (${pointCount} points)`);
         }
         mouse.lassoPoints = [];
     }

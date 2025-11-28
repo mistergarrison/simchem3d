@@ -1,4 +1,5 @@
 
+
 export interface Isotope {
     m: number;
     hl: number | "stable";
@@ -42,6 +43,7 @@ export interface Isotope {
     // Assembly Animation State
     destination?: { x: number; y: number; z: number };
     isAssembling?: boolean; // True if in the high-damping formation phase
+    assemblyGroupId?: number; // Unique ID to isolate this molecule from others during multi-assembly
     assemblyTimeOut?: number; // Safety counter to force release if tension never drops
     assemblyTimer?: number; // Counts up frames since assembly started. Used to enforce minimum hold time.
 
@@ -210,6 +212,16 @@ export interface MouseState {
 
     // Clearance Phase State (Pushing atoms away before spawn)
     clearance: ClearanceState | null;
+
+    // Compression Phase (Pulling atoms together before bonding)
+    compression: {
+        active: boolean;
+        atomIds: Set<string>;
+        cx: number;
+        cy: number;
+        currentRadius: number;
+        minRadius: number;
+    } | null;
 
     // --- AUTO ROTATION ---
     // Animation state for rotating the molecule to the best viewing angle

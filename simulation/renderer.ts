@@ -1,4 +1,5 @@
 
+
 import { Atom, Particle } from '../types';
 import { MouseState } from './types';
 import { Viewport, ProjectedPoint } from './geometry/Viewport';
@@ -44,6 +45,7 @@ export class SceneRenderer {
         this.drawLaunchDrag(mouse, dragStart);
         this.drawEnergyGauge(mouse, isMobile);
         this.drawClearanceRing(mouse);
+        this.drawCompressionRing(mouse);
         this.drawMoleculeHalo(mouse);
 
         // 2. Prepare Scene Graph (Projection & Sorting)
@@ -263,6 +265,24 @@ export class SceneRenderer {
             this.ctx.ellipse(p.x, p.y, p.r, p.r, 0, 0, Math.PI * 2);
             this.ctx.stroke();
             this.ctx.fillStyle = `rgba(255, 255, 255, ${0.05 * (1 - progress)})`;
+            this.ctx.fill();
+        }
+    }
+
+    private drawCompressionRing(mouse: MouseState) {
+        if (!this.ctx || !mouse.compression || !mouse.compression.active || !this.viewport) return;
+        const c = mouse.compression;
+        const p = this.viewport.project(c.cx, c.cy, 0, c.currentRadius);
+
+        if (p) {
+            this.ctx.strokeStyle = '#00FFFF';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([10, 5]); 
+            this.ctx.beginPath();
+            this.ctx.ellipse(p.x, p.y, p.r, p.r, 0, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+            this.ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
             this.ctx.fill();
         }
     }

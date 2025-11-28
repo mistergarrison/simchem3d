@@ -39,6 +39,7 @@ interface SidebarProps {
   debugMode: boolean;
   onToggleDebugMode: () => void;
   onClearStorage?: () => void;
+  hasObjects: boolean;
 }
 
 interface TapState {
@@ -78,7 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLayoutHeightChange,
   debugMode,
   onToggleDebugMode,
-  onClearStorage
+  onClearStorage,
+  hasObjects
 }) => {
   const [editingItem, setEditingItem] = useState<PaletteItem | null>(null);
   const [dragGhost, setDragGhost] = useState<{ item: PaletteItem, x: number, y: number } | null>(null);
@@ -333,7 +335,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           {/* Mobile Toolbar - Enhanced Size */}
           <div className="flex items-center justify-between p-3 border-b border-white/10 gap-3">
               <div className="flex gap-3">
-                <button onClick={onClear} className="p-4 rounded text-red-400 bg-red-900/20 text-3xl active:scale-90 transition-transform">🗑️</button>
+                <button 
+                    onClick={onClear} 
+                    disabled={!hasObjects}
+                    className={`p-4 rounded text-3xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
+                >
+                    🗑️
+                </button>
                 <button onClick={() => onSelectTool('energy')} className={`p-4 rounded text-3xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
                 <button 
                     onClick={() => !isLassoLocked && onSelectTool('lasso')} 
@@ -487,7 +495,16 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-5 border-b border-gray-800 space-y-4 relative">
             {/* Top Tools: Energy, Lasso, Trash */}
             <div className="grid grid-cols-3 gap-2">
-                <button onClick={onClear} className="py-2 flex flex-col items-center justify-center gap-1 rounded-lg border border-red-900/30 bg-red-900/10 text-red-500 hover:bg-red-900/30 transition-all">
+                <button 
+                    onClick={onClear} 
+                    disabled={!hasObjects}
+                    className={`py-2 flex flex-col items-center justify-center gap-1 rounded-lg border transition-all 
+                        ${!hasObjects 
+                            ? 'border-gray-800 bg-gray-900/50 text-gray-600 cursor-not-allowed opacity-50' 
+                            : 'border-red-900/30 bg-red-900/10 text-red-500 hover:bg-red-900/30'
+                        }
+                    `}
+                >
                     <span className="text-xl">🗑️</span><span className="font-bold text-[10px]">Clear</span>
                 </button>
 
