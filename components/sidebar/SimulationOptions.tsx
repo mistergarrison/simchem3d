@@ -49,7 +49,6 @@ export const SimulationOptions: React.FC<SimulationOptionsProps> = ({
                  <div className="mb-2 pb-2 border-b border-gray-700 flex justify-between items-center">
                     <div onClick={onLogoClick} className="cursor-pointer select-none">
                         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
-                        <p className="text-xs text-gray-500">Physics Sandbox</p>
                     </div>
                     <button onClick={onOpenHelp} className="w-7 h-7 rounded border border-gray-600 bg-gray-800 text-gray-400 text-sm hover:bg-gray-700 hover:text-white flex items-center justify-center font-bold">?</button>
                 </div>

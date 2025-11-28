@@ -145,8 +145,9 @@ export class Integrator {
                 atom.destination = undefined;
             }
             
-            // Low cooldown to preserve momentum (standard drag)
-            atom.cooldown = 0; 
+            // High cooldown prevents immediate collision explosions (Pauli Repulsion)
+            // allowing molecules to clear each other's space cleanly.
+            atom.cooldown = 1.0; 
             atom.fx = 0; atom.fy = 0; atom.fz = 0;
         }
     }

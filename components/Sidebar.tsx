@@ -447,7 +447,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center relative">
             <div onClick={handleLogoClick} className="cursor-pointer select-none hover:opacity-80 transition-opacity">
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
-                <p className="text-xs text-gray-500">Physics Sandbox</p>
             </div>
             
             <div className="flex gap-2 items-center">

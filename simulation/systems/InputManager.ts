@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { SimulationEngine } from '../Engine';
 import { Viewport } from '../geometry/Viewport';
@@ -467,9 +466,9 @@ export class InputManager {
                     atomIds: selected,
                     cx, cy,
                     currentRadius: Math.max(maxDist + 50, 300), // Start slightly larger
-                    minRadius: 100 // Target compression
+                    minRadius: 15 // Target compression (shrunk from 100 to ensure all atoms are close enough)
                 };
-                debugWarn(`[Input] Lasso Compression Started: ${count} atoms, R=${maxDist.toFixed(0)}->100`);
+                debugWarn(`[Input] Lasso Compression Started: ${count} atoms, R=${maxDist.toFixed(0)}->15`);
             }
         }
         mouse.lassoPoints = [];

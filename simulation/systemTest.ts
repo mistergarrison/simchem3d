@@ -1,5 +1,7 @@
 
 
+
+
 import { Atom, Particle, SimulationEvent } from '../types';
 import { ELEMENTS, NEUTRON_ELEM, ELECTRON_ELEM, getParticleElementData, SM_PARTICLES } from '../elements';
 import { MOLECULES } from '../molecules';
@@ -565,6 +567,82 @@ class SystemSuite {
         this.onStatus("Lasso Bonding Verified! (2 H2O created)", 'success');
     }
 
+    async testAllMolecules() {
+        console.log("TEST: 10. All Molecule Spawn & Identification");
+        const { cx, cy } = this.getCenter();
+        const failures: string[] = [];
+
+        // Loop through all defined molecules
+        for (const mol of MOLECULES) {
+            // Cleanup previous
+            this.resetBoard(); 
+            this.engine.eventLog = [];
+
+            try {
+                // Spawn
+                this.engine.spawnMolecule(cx, cy, mol);
+                
+                // Wait for Clearance (60 frames) + Assembly (~60 frames) + Stabilization (~30)
+                // Giving it ~1.3 seconds (80 frames) per request.
+                await this.waitFrames(80);
+
+                // Verify
+                if (this.engine.atoms.length === 0) {
+                     throw new Error(`Spawn failed (0 atoms).`);
+                }
+                
+                // Identify all structures on board
+                const observed: string[] = [];
+                const processedIds = new Set<string>();
+
+                this.engine.atoms.forEach(a => {
+                    if (processedIds.has(a.id)) return;
+                    
+                    const groupIds = getMoleculeGroup(this.engine.atoms, a.id);
+                    groupIds.forEach(id => processedIds.add(id));
+                    
+                    const groupAtoms = this.engine.atoms.filter(at => groupIds.has(at.id));
+                    const name = identifyMolecule(groupAtoms);
+                    
+                    if (name) {
+                        observed.push(name);
+                    } else {
+                        // Describe unknown fragments (e.g. "O2", "H", "C2H5")
+                        const counts = new Map<string, number>();
+                        groupAtoms.forEach(at => {
+                            const s = at.element.s;
+                            counts.set(s, (counts.get(s) || 0) + 1);
+                        });
+                        // Sort keys to ensure deterministic output (e.g. C then H)
+                        const formula = Array.from(counts.keys()).sort().map(s => {
+                            const n = counts.get(s)!;
+                            return n > 1 ? `${s}${n}` : s;
+                        }).join('');
+                        observed.push(formula);
+                    }
+                });
+
+                const got = observed.sort().join(" + ");
+                if (observed.length !== 1 || observed[0] !== mol.name) {
+                    throw new Error(`Expected: ${mol.name}. Got: ${got}`);
+                }
+
+            } catch (e: any) {
+                const errorMsg = `[${mol.name}] ${e.message}`;
+                console.error(errorMsg);
+                failures.push(errorMsg);
+            }
+        }
+        
+        this.resetBoard(); // Clean up last molecule
+
+        if (failures.length > 0) {
+            throw new Error(`${failures.length} Molecules Failed Verification:\n` + failures.slice(0, 10).join('\n') + (failures.length > 10 ? '\n...and more.' : ''));
+        }
+        
+        this.onStatus(`All ${MOLECULES.length} Molecules Verified!`, 'success');
+    }
+
     public async run() {
         try {
             this.onStatus("Running Data Integrity Unit Tests...", 'info');
@@ -581,6 +659,7 @@ class SystemSuite {
             await this.testSpontaneousFission();
             await this.testAllPairProductions();
             await this.testLassoBonding();
+            await this.testAllMolecules();
             
             this.onStatus("All Systems Operational!", 'success');
         } catch (e: any) {

@@ -48,7 +48,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
 
     const NAV_ITEMS: { id: PageId; label: string; icon: string; locked: boolean; color: string }[] = [
         { id: 'basics', label: 'Controls & Sim', icon: '🎮', locked: false, color: 'text-white' },
-        { id: 'particles', label: 'Quantum Field', icon: '⚡', locked: false, color: 'text-pink-400' },
+        { id: 'particles', label: 'The Quantum Vacuum', icon: '⚡', locked: false, color: 'text-pink-400' },
         { id: 'hadrons', label: 'Hadronization', icon: '🧩', locked: !unlockedAll && !discoveredQuantum, color: 'text-violet-400' },
         { id: 'nuclear', label: 'Nuclear Physics', icon: '☢️', locked: !unlockedAll && !discoveredHadrons, color: 'text-orange-400' },
         { id: 'chemistry', label: 'Chemistry', icon: '⚗️', locked: !unlockedAll && !discoveredHeavyElements, color: 'text-green-400' },
@@ -60,22 +60,62 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <section className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                            <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">🎮 Interaction</h3>
+                            <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">🎮 Controls</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-300">
                                 <div>
                                     <h4 className="font-bold text-blue-400 uppercase text-xs mb-2">Mouse & Keyboard</h4>
                                     <ul className="space-y-2">
-                                        <li><strong className="text-white">Left Click / Drag:</strong> Interact with atoms. Grab an atom to move it. Fling it to impart velocity.</li>
-                                        <li><strong className="text-white">Scroll Wheel:</strong> Rotate the hovered molecule or group.</li>
+                                        <li><strong className="text-white">Left Click / Drag:</strong> Interact with atoms. Grab to move, release while moving to throw.</li>
+                                        <li><strong className="text-white">Scroll Wheel:</strong> Rotate the molecule currently under your cursor.</li>
                                     </ul>
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-purple-400 uppercase text-xs mb-2">Touch / Mobile</h4>
                                     <ul className="space-y-2">
-                                        <li><strong className="text-white">Tap:</strong> Selects tools or spawn items.</li>
-                                        <li><strong className="text-white">Drag Object:</strong> Moves the atom. Velocity is calculated from your throw speed.</li>
+                                        <li><strong className="text-white">Tap:</strong> Select tools or spawn items from the palette.</li>
+                                        <li><strong className="text-white">Drag Object:</strong> Touch and hold an atom to move it. Momentum is conserved on release.</li>
                                     </ul>
                                 </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-yellow-900/10 p-6 rounded-lg border border-yellow-500/20">
+                            <h3 className="text-xl font-bold text-yellow-500 mb-4 border-b border-yellow-500/20 pb-2">🛠️ Tools</h3>
+                            <div className="space-y-6 text-sm text-gray-300">
+                                <div>
+                                    <strong className="text-white block mb-1 text-lg">⚡ Energy Tool</strong>
+                                    {discoveredQuantum || unlockedAll ? (
+                                        <div className="space-y-2">
+                                            <p>
+                                                This tool allows you to inject raw electron-volts (eV) directly into the vacuum. By holding the button, you ramp up the energy density at a single point in space.
+                                            </p>
+                                            <p>
+                                                According to mass-energy equivalence (E=mc²), if you concentrate enough energy to equal the rest mass of a particle pair, you can rip them into existence. The gauge turns <span className="text-green-400 font-bold">Green</span> when you hit a resonance frequency matching a particle's mass. Release at that moment to spawn.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <p>
+                                            Allows you to interact directly with the vacuum of space. Experiment with holding it to charge up energy, then releasing. The vacuum may respond if you hit specific resonance frequencies.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {hasLasso ? (
+                                    <div>
+                                        <strong className="text-white block mb-1 text-lg">𓎤 Lasso Tool</strong>
+                                        <p>
+                                            Draw a loop around multiple atoms to select them. If the selected atoms match a known chemical recipe (e.g., 2 Hydrogens + 1 Oxygen), the simulation will attempt to assemble them into a molecule using a force-directed layout algorithm.
+                                        </p>
+                                        <p className="mt-2 text-xs text-gray-500">
+                                            <em>Note: In reality, molecules self-assemble via random collisions and thermodynamics. The Lasso acts as a "nano-assembler," allowing you to bypass chance collisions to build complex structures explicitly.</em>
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="opacity-50 flex items-center gap-2 py-2 bg-gray-900/50 rounded px-3 border border-dashed border-gray-700">
+                                        <span className="text-xl">🔒</span>
+                                        <span className="text-gray-500 italic">Advanced assembly tools are locked. Discover your first molecule to unlock.</span>
+                                    </div>
+                                )}
                             </div>
                         </section>
 
@@ -83,37 +123,25 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                             <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">⚙️ Simulation Mechanics</h3>
                             <div className="space-y-6 text-sm text-gray-300">
                                 <div>
-                                    <h4 className="font-bold text-white text-base mb-2">Time Dilation</h4>
+                                    <h4 className="font-bold text-white text-base mb-2">Time Dilation (The Slider)</h4>
                                     <p className="leading-relaxed">
-                                        The slider at the bottom controls the flow of time.
-                                        <br/><br/>
-                                        <span className="text-blue-300 font-bold">Slow Motion (0.1x - 1.0x):</span> Best for observing fast chemical reactions or carefully arranging atoms.
-                                        <br/><br/>
-                                        <span className="text-blue-300 font-bold">Fast Forward (10x - 10,000x):</span> Essential for Nuclear Physics. Use this to speed up radioactive decay, which can otherwise take minutes or years.
+                                        The universe operates on vastly different timescales. A chemical bond vibrates in femtoseconds (10⁻¹⁵ s). A neutron decays in about 15 minutes. A Proton might be stable for 10³⁴ years.
                                     </p>
+                                    <p className="leading-relaxed mt-2">
+                                        To observe these phenomena in a single human lifetime, this simulation uses a variable <strong className="text-blue-300">Time Slider</strong>.
+                                    </p>
+                                    <ul className="list-disc list-inside mt-2 space-y-1">
+                                        <li><span className="text-white">Real Time (1.0x):</span> Essential for chemistry. If time moves too fast, molecular bonds will fly apart due to integration error (the simulation cannot calculate forces fast enough to keep up with hyper-speed atoms).</li>
+                                        <li><span className="text-white">Hyper Time ({'>'}100x):</span> Essential for nuclear physics. You must fast-forward probability to observe rare decay events like Beta Decay or Spontaneous Fission.</li>
+                                    </ul>
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-white text-base mb-2">The Z-Plane</h4>
+                                    <h4 className="font-bold text-white text-base mb-2">The Z-Plane Restoration</h4>
                                     <p className="leading-relaxed">
-                                        While the simulation is 3D, interactions primarily occur on a focal plane (Z=0). 
-                                        A weak "restoration force" gently pulls atoms back to Z=0 so they don't drift into the abyss, while still allowing 3D molecular structures to form.
+                                        Navigating 3D space on a 2D screen is inherently difficult. To keep atoms from drifting infinitely into the background, the simulation applies a weak "restoration force" that gently pulls atoms back to the focal plane (Z=0). This allows for 3D structures (like Tetrahedral Methane) to exist while keeping the action focused on your screen.
                                     </p>
                                 </div>
                             </div>
-                        </section>
-
-                        <section className="bg-yellow-900/10 p-6 rounded-lg border border-yellow-500/20">
-                            <h3 className="text-xl font-bold text-yellow-500 mb-4 border-b border-yellow-500/20 pb-2">🛠️ Tools</h3>
-                            <ul className="space-y-3 text-sm text-gray-300">
-                                <li>
-                                    <strong className="text-white">⚡ Energy Tool:</strong> Your primary interaction method in the void. Hold to accumulate energy in the vacuum, release to discharge it.
-                                </li>
-                                {hasLasso && (
-                                    <li>
-                                        <strong className="text-white">𓎤 Lasso Tool:</strong> Draw a loop around multiple atoms to select them. If they match a known molecule recipe, they will snap into a valid structure.
-                                    </li>
-                                )}
-                            </ul>
                         </section>
                     </div>
                 );
@@ -122,44 +150,56 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <section className="bg-pink-900/20 p-6 rounded-lg border border-pink-500/30">
-                            <h3 className="text-xl font-bold text-pink-400 mb-4">Quantum Field Theory</h3>
+                            <h3 className="text-xl font-bold text-pink-400 mb-4">The Quantum Vacuum</h3>
                             
                             {!discoveredQuantum && !unlockedAll ? (
                                 <div className="space-y-4">
                                     <p className="text-base text-gray-300 leading-loose">
-                                        The vacuum is not empty space. It is a seething ocean of potential energy.
+                                        You are staring at empty space, but in quantum mechanics, "empty" does not mean "nothing". The vacuum is a seething ocean of invisible fields, bubbling with potential energy and virtual particles that pop in and out of existence.
                                     </p>
                                     <div className="bg-black/40 p-5 rounded border border-pink-500/20 mt-4">
-                                        <strong className="text-white text-sm block mb-3">Objective: Perturb the Vacuum</strong>
+                                        <strong className="text-white text-sm block mb-3 uppercase tracking-wider">Research Hint</strong>
                                         <p className="text-sm text-gray-300">
-                                            If you concentrate enough energy into a single point, you may be able to rip real particles out of the void.
+                                            If you concentrate enough energy into a single point, you might be able to pay the energy debt required to turn a virtual fluctuation into a real particle.
                                         </p>
                                         <p className="text-sm text-gray-300 mt-2">
-                                            Use the <strong className="text-yellow-400">Energy Tool (⚡)</strong>. Hold it to charge up energy (eV/MeV). Try to release it when you hit a resonant frequency.
+                                            Use the <strong className="text-yellow-400">Energy Tool (⚡)</strong>. Watch the gauge. There are specific energy thresholds where the vacuum resonates. Try releasing the tool when the gauge turns <span className="text-green-400 font-bold">Green</span>.
                                         </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        You have successfully triggered <strong>Pair Production</strong>! By injecting energy greater than the rest mass of the particles (E &gt; 2mc²), you converted pure energy into matter and antimatter.
-                                    </p>
+                                    <div className="bg-pink-500/10 p-4 rounded border-l-4 border-pink-500">
+                                        <h4 className="font-bold text-pink-300 text-sm uppercase mb-1">Mechanism Discovered</h4>
+                                        <p className="text-white font-bold">Pair Production (E = mc²)</p>
+                                    </div>
                                     
                                     <div className="space-y-4">
-                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1">Real World Physics</h4>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Conservation of Lepton Number:</strong> In reality, you cannot simply create an electron. Nature requires balance. You must create a matter/antimatter pair (e.g., an Electron and a Positron) so the net charge and lepton number of the universe remain zero.
+                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1 mt-6 text-lg">Fundamental Physics</h4>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Quantum Field Theory (QFT):</strong> The deepest reality of our universe is not particles, but fields. Imagine the entire universe filled with fluids: an Electron Fluid, an Up-Quark Fluid, a Photon Fluid, etc. A "particle" is merely a localized ripple or excitation in one of these fields, traveling like a wave across an ocean. This explains why every electron in the universe is identical—they are all ripples in the exact same field.
                                         </p>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Bosons:</strong> Force carriers like Photons (γ) are modeled here as massless particles. They travel at max speed and pass through other matter ("ghosting"), mimicking their wave-like behavior.
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Virtual Particles & Uncertainty:</strong> The Heisenberg Uncertainty Principle (ΔE Δt ≥ ℏ/2) allows the vacuum to "borrow" energy for infinitesimally short times. Virtual particle-antiparticle pairs constantly pop into existence and annihilate before the universe notices the energy debt. This "vacuum foam" has real effects (like the Casimir Effect), but these particles are not "real" in the sense that they cannot persist.
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Pair Production:</strong> To make a real particle, you must pay the energy cost upfront. Einstein's E=mc² tells us that mass (m) is just condensed energy (E). If you inject enough raw energy (e.g., via a high-energy photon or a collision) into a point in space to exceed twice the rest mass of an electron (2 × 0.511 MeV = 1.022 MeV), you can rip a real Electron and Positron out of the field.
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Conservation of Charge:</strong> Why pairs? You cannot create electric charge from nothing. The net charge of the vacuum is zero. To create a negative electron (-1), nature demands you simultaneously create its antimatter twin, the positive positron (+1). They emerge together, conserving the total charge of the universe.
                                         </p>
                                     </div>
 
-                                    <div className="space-y-4 mt-4 bg-gray-900 p-4 rounded border-l-2 border-red-500">
-                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation Inaccuracies</h4>
-                                        <p className="text-xs text-gray-500">
-                                            <strong>Scale:</strong> Subatomic particles are drawn vastly larger than reality. If an atom were a stadium, the nucleus would be a marble, and the electron a speck of dust. We scale them up for visibility.
-                                        </p>
+                                    <div className="space-y-4 mt-6 bg-gray-900 p-4 rounded border-l-2 border-red-500">
+                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation vs Reality</h4>
+                                        <ul className="text-xs text-gray-400 space-y-2 list-disc list-inside">
+                                            <li>
+                                                <strong>Momentum Conservation:</strong> In the real world, a single photon in a vacuum cannot spontaneously convert into an electron-positron pair because momentum would not be conserved (the center of mass cannot go from moving at light speed to moving slower). Real pair production usually requires a nearby atomic nucleus to absorb the recoil. In this sim, we allow vacuum production for gameplay.
+                                            </li>
+                                            <li>
+                                                <strong>Electron Mass:</strong> In this simulation, the electron mass is set to ~0.1u (approx 1/10th proton mass) instead of the realistic 1/1836th. This is a necessary compromise for the physics engine; a realistic electron would accelerate so violently under forces (F=ma) that it would either tunnel out of the simulation or require nanosecond timesteps, freezing the game.
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             )}
@@ -171,44 +211,53 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <section className="bg-violet-900/20 p-6 rounded-lg border border-violet-500/30">
-                            <h3 className="text-xl font-bold text-violet-300 mb-4">Hadronization & Confinement</h3>
+                            <h3 className="text-xl font-bold text-violet-300 mb-4">Hadronization & The Strong Force</h3>
                             
                             {!discoveredHadrons && !unlockedAll ? (
                                 <div className="space-y-6">
                                     <p className="text-base text-gray-300 leading-relaxed">
-                                        You may have noticed that Quarks disappear rapidly after creation. This is due to <strong>Color Confinement</strong>. Quarks cannot exist in isolation.
+                                        You may have noticed that Quarks disappear rapidly after creation. They are unstable in isolation and cannot exist freely in our universe.
                                     </p>
                                     <div className="bg-black/40 p-5 rounded border border-violet-500/20">
-                                        <strong className="text-white text-sm block mb-3">Objective: Stabilize the Quarks</strong>
+                                        <strong className="text-white text-sm block mb-3 uppercase tracking-wider">Research Hint</strong>
                                         <p className="text-sm text-gray-300">
-                                            To save a Quark from decaying back into the vacuum, you must combine it with others to form a color-neutral <strong>Hadron</strong>.
+                                            Quarks carry a "Color Charge". Nature abhors naked color; it enforces a rule called Confinement. To save a Quark from decaying back into the vacuum, you must combine it with others to form a neutral "white" object.
                                         </p>
                                         <p className="text-sm text-gray-300 mt-2">
-                                            Try spawning 3 Quarks (Up/Down) in rapid succession in the same spot.
+                                            Try spawning <strong>3 Quarks</strong> (combinations of Up/Down) in rapid succession in the exact same spot.
                                         </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        Success! You have created a <strong>Nucleon</strong> (Proton or Neutron). By grouping 3 quarks, their color charges canceled out, creating a stable composite particle.
-                                    </p>
-                                    
+                                    <div className="bg-violet-500/10 p-4 rounded border-l-4 border-violet-500">
+                                        <h4 className="font-bold text-violet-300 text-sm uppercase mb-1">Mechanism Discovered</h4>
+                                        <p className="text-white font-bold">Baryon Genesis (Hadronization)</p>
+                                    </div>
+
                                     <div className="space-y-4">
-                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1">Real World Physics</h4>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Mass Deficit:</strong> A proton weighs ~938 MeV, but its three quarks only weigh ~10 MeV combined. The remaining 99% of the mass comes from the kinetic energy of the gluons binding them together (E=mc²).
+                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1 mt-6 text-lg">Fundamental Physics</h4>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Quantum Chromodynamics (QCD):</strong> This is the theory of the Strong Interaction. Just as electromagnetism has 2 charges (+/-), the Strong Force has 3 types of charge, whimsically named "Red", "Green", and "Blue" (Color Charge). These have nothing to do with visual colors, but the math of combining them follows the rules of additive light: Red + Green + Blue = White (Neutral).
                                         </p>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Strong Force:</strong> This is the force that holds quarks together. It gets stronger as you pull them apart, acting like a rubber band.
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Confinement & Flux Tubes:</strong> The Strong Force is unique because it does not diminish with distance like gravity. It is mediated by Gluons, which themselves carry color charge. This means gluons attract other gluons, squeezing the force field into a tight "Flux Tube" or rubber band connecting the quarks. If you try to pull two quarks apart, the energy in this tube grows linearly until it snaps. The energy released by the snap is sufficient to create a new quark-antiquark pair (E=mc²). Thus, you can never isolate a quark; pulling one out just creates more quarks. This is Confinement.
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Mass from Nothing:</strong> A Proton is made of two Up quarks and one Down quark (uud). The rest mass of these three quarks is only about 9 MeV/c². Yet, the Proton weighs 938 MeV/c². Where does the other 99% of the mass come from? It is pure energy—the kinetic energy of the quarks buzzing around at near light-speed, and the potential energy of the dynamic gluon field binding them. <em>You are made almost entirely of trapped energy.</em>
                                         </p>
                                     </div>
 
-                                    <div className="space-y-4 mt-4 bg-gray-900 p-4 rounded border-l-2 border-red-500">
-                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation Inaccuracies</h4>
-                                        <p className="text-xs text-gray-500">
-                                            <strong>Flux Tubes:</strong> In reality, pulling quarks apart snaps the gluon field, creating new quark pairs from the energy (Hadronization Jets). In this sim, we simplify this by just decaying isolated quarks after a few seconds.
-                                        </p>
+                                    <div className="space-y-4 mt-6 bg-gray-900 p-4 rounded border-l-2 border-red-500">
+                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation vs Reality</h4>
+                                        <ul className="text-xs text-gray-400 space-y-2 list-disc list-inside">
+                                            <li>
+                                                <strong>Decay vs Jets:</strong> In reality, an isolated high-energy quark does not simply "evaporate" or decay. Due to the flux tube snapping mentioned above, it would produce a spray of new particles called a "Hadronic Jet" (mostly mesons). In this simulation, for clarity and performance, we simplify this: isolated quarks simply fade away if they fail to hadronize within a short window.
+                                            </li>
+                                            <li>
+                                                <strong>Spin Statistics:</strong> Real quarks are Fermions with spin 1/2 and obey the Pauli Exclusion Principle. We do not simulate spin states or color-exclusion logic in the collision engine.
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             )}
@@ -220,51 +269,59 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                 return (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                         <section className="bg-orange-900/20 p-6 rounded-lg border border-orange-500/30">
-                            <h3 className="text-xl font-bold text-orange-400 mb-4">Nuclear Synthesis</h3>
+                            <h3 className="text-xl font-bold text-orange-400 mb-4">Nuclear Synthesis & Weak Force</h3>
                             
                             {!discoveredHeavyElements && !unlockedAll ? (
                                 <div className="space-y-6">
                                     <p className="text-base text-gray-300 leading-relaxed">
-                                        You have Hydrogen (Protons). But how do you make heavier elements like Helium or Carbon? 
-                                        Smashing protons together is difficult because they repel each other (Coulomb Barrier).
+                                        You have Hydrogen (single Protons). To make heavier elements, you need to fuse them. However, protons are positively charged—they repel each other violently via the Coulomb Force before they can touch.
                                     </p>
                                     <div className="bg-black/40 p-5 rounded border border-orange-500/20">
-                                        <strong className="text-white text-sm block mb-3">Objective: Bypass the Electric Defense</strong>
+                                        <strong className="text-white text-sm block mb-3 uppercase tracking-wider">Research Hint</strong>
                                         <p className="text-sm text-gray-300 mb-2">
-                                            You need a particle with mass but NO charge.
+                                            You need a particle with mass but NO charge to slip past the electric defenses of the nucleus.
                                         </p>
                                         <ol className="text-sm text-gray-400 list-decimal list-inside space-y-2 mt-3">
-                                            <li>Take a <strong>Proton</strong>.</li>
-                                            <li>Throw a <strong>Neutron</strong> at it. It should stick!</li>
-                                            <li>Keep adding neutrons until the nucleus becomes unstable.</li>
-                                            <li>Wait for nature to take its course.</li>
+                                            <li>Take a <strong>Proton</strong> (Hydrogen nucleus).</li>
+                                            <li>Throw a <strong>Neutron</strong> at it. It has no charge, so it won't be repelled.</li>
+                                            <li>Keep adding neutrons until the nucleus becomes unstable (check the Isotope info).</li>
+                                            <li>Wait for nature to fix the imbalance via Beta Decay.</li>
                                         </ol>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        You have discovered <strong>Neutron Capture</strong> and <strong>Beta Decay</strong>! This is your engine for climbing the periodic table.
-                                    </p>
-                                    <p className="text-sm text-gray-300">
-                                        By adding neutrons, you created a heavy isotope. It eventually became unstable and turned a neutron into a proton (emitting an electron), transforming the element into the next one on the table.
-                                    </p>
+                                    <div className="bg-orange-500/10 p-4 rounded border-l-4 border-orange-500">
+                                        <h4 className="font-bold text-orange-300 text-sm uppercase mb-1">Mechanism Discovered</h4>
+                                        <p className="text-white font-bold">Neutron Capture & Beta Decay</p>
+                                    </div>
 
                                     <div className="space-y-4">
-                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1">Real World Physics</h4>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Valley of Stability:</strong> Atomic nuclei need a specific balance of protons and neutrons. Too many neutrons? Beta decay. Too many protons? Positron emission or Alpha decay.
+                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1 mt-6 text-lg">Fundamental Physics</h4>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Residual Strong Force:</strong> The Strong Force confines quarks inside protons/neutrons. However, a tiny fraction of this force "leaks" out. This residual force (historically modeled as the exchange of Pions) attracts nucleons to each other. It is very short-range (a few femtometers). It must overcome the infinite-range electric repulsion of the protons. Neutrons act as the "glue"—they add Strong Force attraction without adding electric repulsion, stabilizing the nucleus.
                                         </p>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>Breeder Reactors:</strong> This process (Neutron Capture -> Decay) is exactly how we create plutonium and other synthetic elements in nuclear reactors.
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Valley of Stability:</strong> Atomic nuclei can only exist with specific ratios of protons to neutrons. Too few neutrons, and the electric repulsion rips the nucleus apart. Too many neutrons, and quantum mechanical energy levels force the nucleus into a higher energy state. Nature always seeks the lowest energy state, leading to radioactive decay to correct the ratio.
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>The Weak Interaction (Beta Decay):</strong> The Weak Force is the only fundamental force capable of changing the "flavor" of a quark. In Beta Minus Decay, a Down quark inside a Neutron (udd) spontaneously flips into an Up quark, turning the Neutron into a Proton (uud). To conserve charge (0 → +1) and lepton number, the nucleus ejects an electron (e⁻) and an electron-antineutrino (ν̅e). This increases the atomic number (Z → Z+1), transmuting the element. This is how the universe builds complexity.
                                         </p>
                                     </div>
 
-                                    <div className="space-y-4 mt-4 bg-gray-900 p-4 rounded border-l-2 border-red-500">
-                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation Inaccuracies</h4>
-                                        <p className="text-xs text-gray-500">
-                                            <strong>Fusion vs Capture:</strong> Stars build elements by smashing protons together (Fusion) at millions of degrees. Simulating that requires extreme temperature/pressure mechanics. We use Neutron Capture because it works at "room temperature" in the sim, making it playable without gravity.
-                                        </p>
+                                    <div className="space-y-4 mt-6 bg-gray-900 p-4 rounded border-l-2 border-red-500">
+                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation vs Reality</h4>
+                                        <ul className="text-xs text-gray-400 space-y-2 list-disc list-inside">
+                                            <li>
+                                                <strong>Stellar Nucleosynthesis:</strong> In our universe, elements like Helium and Carbon are largely formed in stars via <strong>Nuclear Fusion</strong>, smashing protons together at millions of degrees to overcome the Coulomb Barrier. In this sandbox, we primarily use Neutron Capture (similar to the astrophysical "r-process" seen in neutron star mergers) because it allows you to build elements at "room temperature" without needing the gravity of a star.
+                                            </li>
+                                            <li>
+                                                <strong>Tunneling:</strong> Real fusion relies on Quantum Tunneling to overcome the electric repulsion. We simulate this probabilistically.
+                                            </li>
+                                            <li>
+                                                <strong>Time Scale:</strong> Real Beta decay half-lives vary from milliseconds to billions of years (like Potassium-40). We accelerate this massively when you use the Time Slider so you don't have to wait for the heat death of the universe to make Helium.
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             )}
@@ -281,14 +338,14 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                             {!discoveredMolecules && !unlockedAll ? (
                                 <div className="space-y-6">
                                     <p className="text-base text-gray-300 leading-relaxed">
-                                        Atoms desire stability. They want to have full outer electron shells.
+                                        We are now leaving the nucleus. The forces here are gentler. Atoms generally desire electronic stability—they want to fill their outer electron shells.
                                     </p>
                                     <div className="bg-black/40 p-5 rounded border border-green-500/20">
-                                        <strong className="text-white text-sm block mb-3">Objective: Make Water</strong>
+                                        <strong className="text-white text-sm block mb-3 uppercase tracking-wider">Research Hint</strong>
                                         <ol className="text-sm text-gray-400 list-decimal list-inside space-y-2">
                                             <li>Create an <strong>Oxygen</strong> atom (Z=8) and two <strong>Hydrogen</strong> atoms (Z=1).</li>
-                                            <li>Throw <strong>Electrons</strong> at them until they are neutral (Charge 0). Ions repel each other!</li>
-                                            <li>Bring them gently together. If they are compatible, they will bond.</li>
+                                            <li>Notice their charge? Bare nuclei are positive ions (H⁺, O⁸⁺), and they repel. Throw <strong>Electrons</strong> at them until they are neutral.</li>
+                                            <li>Once neutral, bring them gently together. If they are compatible, they will snap together to share electrons.</li>
                                         </ol>
                                         <p className="text-xs text-gray-500 mt-3 italic border-t border-gray-800 pt-2">
                                             Tip: Check the Recipe Palette (⚗️) to see valid combinations.
@@ -297,22 +354,39 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        You have created a molecule! By sharing electrons (<strong>Covalent Bonding</strong>), the atoms have locked together to complete their valence shells.
-                                    </p>
-                                    
+                                    <div className="bg-green-500/10 p-4 rounded border-l-4 border-green-500">
+                                        <h4 className="font-bold text-green-300 text-sm uppercase mb-1">Mechanism Discovered</h4>
+                                        <p className="text-white font-bold">Covalent Bonding & VSEPR</p>
+                                    </div>
+
                                     <div className="space-y-4">
-                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1">Real World Physics</h4>
-                                        <p className="text-xs text-gray-400">
-                                            <strong>VSEPR Theory:</strong> Notice how the atoms arrange themselves? Electron pairs repel each other, forcing bonds into specific 3D geometries (like the 109.5° angle in Methane). The simulation actively calculates these forces.
+                                        <h4 className="font-bold text-white border-b border-gray-700 pb-1 mt-6 text-lg">Fundamental Physics</h4>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Atomic Orbitals:</strong> Electrons do not orbit nuclei like planets. They exist as standing waves of probability called Orbitals (s, p, d, f). The Schrödinger equation dictates the shape of these clouds. Electrons are Fermions, meaning no two can occupy the same state (Pauli Exclusion Principle).
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>Covalent Bonding:</strong> When two atoms approach, their wavefunctions can overlap. If the phase is correct, they interfere constructively, creating a region of high electron density between the nuclei. This negative charge attracts the positive nuclei of both atoms, gluing them together. Bonding lowers the total potential energy of the system, which is why it happens spontaneously.
+                                        </p>
+                                        <p className="text-sm text-gray-300 leading-relaxed">
+                                            <strong>VSEPR Theory (Geometry):</strong> Why is Water (H₂O) bent? Why is Methane (CH₄) a pyramid? Electrons are negatively charged and repel each other. The Valence Shell Electron Pair Repulsion theory states that electron domains (both bonding pairs and invisible "lone pairs") will arrange themselves as far apart as possible on the surface of the atom.
+                                            <br/>
+                                            In Methane, Carbon has 4 bonding pairs, forming a Tetrahedron (109.5°). In Water, Oxygen has 2 bonds and 2 lone pairs. The lone pairs are "fatter" and push the Hydrogen bonds closer together, resulting in a bent angle of 104.5°.
                                         </p>
                                     </div>
 
-                                    <div className="space-y-4 mt-4 bg-gray-900 p-4 rounded border-l-2 border-red-500">
-                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation Inaccuracies</h4>
-                                        <p className="text-xs text-gray-500">
-                                            <strong>Springs vs Waves:</strong> Real chemical bonds are standing waves of probability (orbitals). We model them as damped springs. This is a common approximation in computational chemistry (Molecular Dynamics) that visualizes vibration and rigidity well, though it simplifies the quantum reality.
-                                        </p>
+                                    <div className="space-y-4 mt-6 bg-gray-900 p-4 rounded border-l-2 border-red-500">
+                                        <h4 className="font-bold text-red-400 text-xs uppercase">Simulation vs Reality</h4>
+                                        <ul className="text-xs text-gray-400 space-y-2 list-disc list-inside">
+                                            <li>
+                                                <strong>Springs vs Waves:</strong> We model bonds as damped springs to visualize their rigidity and vibration in real-time. In reality, bonds are quantum mechanical states that don't "jiggle" quite like macroscopic springs unless excited by infrared photons.
+                                            </li>
+                                            <li>
+                                                <strong>Hard Spheres:</strong> We calculate collisions using hard radii. Real atoms are fuzzy clouds that can overlap, tunnel, and distort (polarize) under pressure.
+                                            </li>
+                                            <li>
+                                                <strong>Deterministic Assembly:</strong> Real chemistry is driven by random collisions and thermodynamics (Gibbs Free Energy). Here, you act as a "molecular architect" using the Lasso tool, allowing you to hand-assemble structures that might be statistically unlikely to form spontaneously without a catalyst.
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                             )}
