@@ -35,7 +35,7 @@ export interface Isotope {
     createdAt: number; // Timestamp of creation for particle decay
     lastDecayCheck?: number;
     // New Props for Physics
-    charge?: number; // -1, 0, +1
+    charge?: number; // -1, 0, +1, or fractional (quarks)
     customIsotope?: Isotope; // For transient nuclear states
     cooldown?: number; // 0.0 - 1.0. Used to stabilize newly formed molecules.
     
@@ -43,6 +43,13 @@ export interface Isotope {
     destination?: { x: number; y: number; z: number };
     isAssembling?: boolean; // True if in the high-damping formation phase
     assemblyTimeOut?: number; // Safety counter to force release if tension never drops
+    assemblyTimer?: number; // Counts up frames since assembly started. Used to enforce minimum hold time.
+
+    // DEBUGGING
+    _debugId?: number; // Ephemeral runtime ID to track object identity
+    _debugReleasePos?: {x: number, y: number, z: number}; // Position at moment of assembly release
+    _debugReleaseTime?: number; // Timestamp of release
+    _debugReleaseLogged?: boolean; // Flag to ensure single log
   }
   
   export interface Particle {
@@ -123,6 +130,7 @@ export interface ClearanceState {
     life: number;
     maxLife: number;
     molecule: Molecule | null;
+    velocity?: { vx: number, vy: number, vz: number };
 }
 
 export type GameMode = 'sandbox' | 'discovery';
@@ -162,6 +170,7 @@ export interface MouseState {
     isDown: boolean;
     dragId: string | null;     // ID of the atom currently being dragged
     hoverId: string | null;    // ID of the atom currently under the cursor
+    hoverGroup: Set<string> | null; // IDs of the molecule under the cursor
     dragName: string | null;   // Name of the molecule currently being dragged (if recognized)
     
     // Energy Tool State

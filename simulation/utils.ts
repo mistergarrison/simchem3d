@@ -8,6 +8,21 @@ import { ELEMENTS } from '../elements';
  * Pure utility functions for Geometry, Graph Traversal, and basic Bond management.
  */
 
+// --- DEBUG LOGGING UTILITY ---
+let isDebug = false;
+
+export const setDebug = (enabled: boolean) => {
+    isDebug = enabled;
+};
+
+export const debugLog = (msg: string, ...args: any[]) => {
+    if (isDebug) console.log(msg, ...args);
+};
+
+export const debugWarn = (msg: string, ...args: any[]) => {
+    if (isDebug) console.warn(msg, ...args);
+};
+
 // --- WORLD MANAGEMENT HELPERS ---
 
 /**

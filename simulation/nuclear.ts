@@ -4,108 +4,6 @@ import { ELEMENTS, NEUTRON_ELEM, PROTON_ELEM, SM_PARTICLES, getParticleElementDa
 import { createExplosion } from './effects';
 import { addAtomToWorld, removeAtomFromWorld } from './utils';
 
-const FUSION_RECIPES = [
-    // H-1 + H-1 -> H-2 (Deuterium)
-    { inputs: [{z:1, m:1}, {z:1, m:1}], output: {z:1, m:2} },
-    // H-2 + H-1 -> He-3
-    { inputs: [{z:1, m:2}, {z:1, m:1}], output: {z:2, m:3} },
-    // He-3 + He-3 -> He-4
-    { inputs: [{z:2, m:3}, {z:2, m:3}], output: {z:2, m:4} },
-    // 3x He-4 -> C-12 (Triple Alpha)
-    { inputs: [{z:2, m:4}, {z:2, m:4}, {z:2, m:4}], output: {z:6, m:12} },
-    // C-12 + He-4 -> O-16
-    { inputs: [{z:6, m:12}, {z:2, m:4}], output: {z:8, m:16} },
-    // O-16 + He-4 -> Ne-20
-    { inputs: [{z:8, m:16}, {z:2, m:4}], output: {z:10, m:20} },
-    // Ne-20 + He-4 -> Mg-24
-    { inputs: [{z:10, m:20}, {z:2, m:4}], output: {z:12, m:24} },
-    // Mg-24 + He-4 -> Si-28 (Bridging step implied to reach Si-28)
-    { inputs: [{z:12, m:24}, {z:2, m:4}], output: {z:14, m:28} },
-    // Si-28 + Si-28 -> Fe-56 (Iron Limit)
-    { inputs: [{z:14, m:28}, {z:14, m:28}], output: {z:26, m:56} }
-];
-
-const matchesSpec = (atom: Atom, spec: {z: number, m: number}) => {
-    return atom.element.z === spec.z && Math.abs(atom.mass - spec.m) < 0.2;
-};
-
-// Internal local logging helper removed; using utils/addAtomToWorld instead
-
-export const attemptFusion = (atoms: Atom[], particles: Particle[], subset: Set<string>) => {
-    const group = atoms.filter(a => a && subset.has(a.id));
-    if (group.length < 2) return;
-
-    let cx = 0, cy = 0;
-    group.forEach(a => { cx += a.x; cy += a.y; });
-    cx /= group.length; cy /= group.length;
-
-    const usedIds = new Set<string>();
-
-    for (const recipe of FUSION_RECIPES) {
-        while (true) {
-            const currentMatchIds: string[] = [];
-            
-            for (const input of recipe.inputs) {
-                const match = group.find(a => 
-                    !usedIds.has(a.id) && 
-                    !currentMatchIds.includes(a.id) && 
-                    matchesSpec(a, input)
-                );
-                if (match) {
-                    currentMatchIds.push(match.id);
-                } else {
-                    break;
-                }
-            }
-
-            if (currentMatchIds.length === recipe.inputs.length) {
-                currentMatchIds.forEach(id => usedIds.add(id));
-                
-                const outElem = ELEMENTS.find(e => e.z === recipe.output.z);
-                if (outElem) {
-                    let isoIndex = outElem.iso.findIndex(i => Math.abs(i.m - recipe.output.m) < 0.5);
-                    if (isoIndex === -1) isoIndex = 0;
-
-                    const product: Atom = {
-                        id: Math.random().toString(36),
-                        x: cx + (Math.random()-0.5)*10,
-                        y: cy + (Math.random()-0.5)*10,
-                        z: 0,
-                        vx: (Math.random()-0.5)*2,
-                        vy: (Math.random()-0.5)*2,
-                        vz: 0,
-                        fx: 0, fy: 0, fz: 0,
-                        element: outElem,
-                        isotopeIndex: isoIndex,
-                        mass: outElem.iso[isoIndex].m,
-                        radius: 30 + Math.pow(outElem.iso[isoIndex].m, 0.33) * 10,
-                        bonds: [],
-                        createdAt: Date.now(),
-                        lastDecayCheck: Date.now()
-                    };
-                    
-                    // Fusion doesn't pass eventLog ref currently, but it's rare.
-                    // Ideally we'd pass eventLog here too, but for now we push directly.
-                    atoms.push(product);
-                    
-                    createExplosion(particles, cx, cy, 0, '#FFDD00', 25);
-                }
-
-            } else {
-                break;
-            }
-        }
-    }
-
-    if (usedIds.size > 0) {
-        for (let i = atoms.length - 1; i >= 0; i--) {
-            if (atoms[i] && usedIds.has(atoms[i].id)) {
-                atoms.splice(i, 1);
-            }
-        }
-    }
-};
-
 export const spawnPairProduction = (
     atoms: Atom[],
     particles: Particle[],
@@ -203,7 +101,7 @@ export const resolveHadronization = (atoms: Atom[], particles: Particle[], event
     const toRemoveIds = new Set<string>();
     // Increased Proximity Square (500px^2) to allow easier gathering
     const PROXIMITY_SQ = 500 * 500; 
-    const FUSION_DIST_SQ = 12 * 12; 
+    const HADRONIZATION_DIST_SQ = 12 * 12; 
     const pendingAdditions: Atom[] = [];
 
     for (let i = 0; i < quarks.length; i++) {
@@ -265,7 +163,7 @@ export const resolveHadronization = (atoms: Atom[], particles: Particle[], event
                     const d3 = (quarks[k].x-cx)**2 + (quarks[k].y-cy)**2 + (quarks[k].z-cz)**2;
                     const maxDistSq = Math.max(d1, d2, d3);
 
-                    if (maxDistSq > FUSION_DIST_SQ) {
+                    if (maxDistSq > HADRONIZATION_DIST_SQ) {
                         // Pull together (Fly-in animation)
                         const pullStrength = 0.15; 
                         [quarks[i], quarks[j], quarks[k]].forEach(q => {
@@ -282,7 +180,7 @@ export const resolveHadronization = (atoms: Atom[], particles: Particle[], event
                         continue;
                     }
 
-                    // --- FUSION ---
+                    // --- HADRONIZATION ---
                     usedIds.add(quarks[i].id); usedIds.add(quarks[j].id); usedIds.add(quarks[k].id);
                     toRemoveIds.add(quarks[i].id); toRemoveIds.add(quarks[j].id); toRemoveIds.add(quarks[k].id);
                     
@@ -297,7 +195,7 @@ export const resolveHadronization = (atoms: Atom[], particles: Particle[], event
                         x: cx, y: cy, z: cz,
                         vx, vy, vz,
                         fx: 0, fy: 0, fz: 0,
-                        // FIX: Use PROTON_ELEM directly to ensure 'p+' symbol is preserved for testing
+                        // Use PROTON_ELEM directly to ensure 'p+' symbol is preserved
                         element: product === PROTON_ELEM ? PROTON_ELEM : NEUTRON_ELEM,
                         isotopeIndex: 0,
                         mass: product === PROTON_ELEM ? 1.007 : 1.008,
@@ -311,8 +209,6 @@ export const resolveHadronization = (atoms: Atom[], particles: Particle[], event
                     createExplosion(particles, cx, cy, cz, color, 20);
                     pendingAdditions.push(newAtom);
                     
-                    // Use helper to ensure consistent event logging
-                    // NOTE: Removal here is deferred to batch, so we manually log destroy.
                     if (eventLog) {
                         eventLog.push({type: 'destroy', atomId: quarks[i].id, label: quarks[i].element.s, reason: 'Hadronization', timestamp: Date.now()});
                         eventLog.push({type: 'destroy', atomId: quarks[j].id, label: quarks[j].element.s, reason: 'Hadronization', timestamp: Date.now()});

@@ -2,7 +2,7 @@
 import { Atom, Molecule } from '../types';
 import { MouseState } from './types';
 import { ELEMENTS } from '../elements';
-import { getMoleculeGroup } from './utils';
+import { getMoleculeGroup, debugWarn } from './utils';
 
 export const CLEARANCE_RADIUS = 675;
 export const CLEARANCE_FRAMES = 60; // 1 second @ 60fps (Synced with Test Speed)
@@ -11,7 +11,14 @@ export const CLEARANCE_FRAMES = 60; // 1 second @ 60fps (Synced with Test Speed)
  * Initiates the Clearance Phase.
  * Sets up the mouse state to push existing atoms away from the spawn target.
  */
-export const startClearance = (mouse: MouseState, cx: number, cy: number, molecule: Molecule) => {
+export const startClearance = (
+    mouse: MouseState, 
+    cx: number, 
+    cy: number, 
+    molecule: Molecule,
+    velocity?: { vx: number, vy: number, vz: number }
+) => {
+    debugWarn(`[Clearance] Started for ${molecule.name} at (${cx.toFixed(0)}, ${cy.toFixed(0)})`);
     mouse.clearance = {
         active: true,
         cx,
@@ -19,7 +26,8 @@ export const startClearance = (mouse: MouseState, cx: number, cy: number, molecu
         maxRadius: CLEARANCE_RADIUS,
         life: CLEARANCE_FRAMES,
         maxLife: CLEARANCE_FRAMES,
-        molecule
+        molecule,
+        velocity
     };
 };
 
@@ -106,15 +114,19 @@ export const resolveClearance = (
               const isoIndex = el ? el.iso.findIndex(iso => iso.hl === 'stable') : 0;
               const validIso = isoIndex === -1 ? 0 : isoIndex;
 
+              // Debug Log for Atom Spawning
+              debugWarn(`[Clearance] Spawning ${ing.count}x ${el?.s || ing.z} for ${mol.name}`);
+
               for (let i = 0; i < ing.count; i++) {
-                  const r = 300; 
+                  // SPAWN FIX: Reverted radius to 300 to match user expectation for spawn cloud size
+                  const r = Math.random() * 300; 
                   const theta = Math.random() * Math.PI * 2;
                   const phi = Math.random() * Math.PI;
                   const x = cx + r * Math.sin(phi) * Math.cos(theta);
                   const y = cy + r * Math.sin(phi) * Math.sin(theta);
-                  const z = (Math.random() - 0.5) * 300; 
+                  const z = (Math.random() - 0.5) * 40; 
                   
-                  const atom = spawnAtomFn(x, y, z, ing.z, validIso, undefined, 0); // Default charge 0 for atoms
+                  const atom = spawnAtomFn(x, y, z, ing.z, validIso, c.velocity, 0); 
                   if (atom) newAtoms.push(atom);
               }
            });

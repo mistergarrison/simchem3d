@@ -1,47 +1,44 @@
 
 import { ElementData, Molecule } from '../types';
 
-export const SUBSTEPS = 8; 
-export const MAX_SPEED = 1500; // Increased to 1500 to allow for Super-Charged shots (10x base speed)
+export const SUBSTEPS = 1; 
+export const MAX_SPEED = 1500; 
 
 // --- PHYSICS CONSTANTS ---
 
 /**
  * Global Air Resistance (Drag).
- * Applied every physics substep.
+ * 0.98 allows momentum to carry atoms naturally.
  */
-export const DRAG_COEFF = 0.990; 
+export const DRAG_COEFF = 0.98; 
 
 /**
- * Increased Stiffness (1.0) makes bonds harder to stretch.
- * Increased Damping (0.8) allows molecules to absorb impact shock without oscillating wildly.
+ * Bond Physics
+ * Original Low Stiffness values.
  */
-export const BOND_STIFFNESS = 0.5; 
-export const BOND_DAMPING = 0.05;   
+export const BOND_STIFFNESS = 0.2; 
+export const BOND_DAMPING = 0.1;   
 
 // --- VSEPR CONSTANTS ---
 
-export const ANGULAR_STIFFNESS = 0.5; 
+export const ANGULAR_STIFFNESS = 0.1; 
 export const ANGULAR_DAMPING = 0.1;
 
-// Z-Axis Constraints (Strict Planar Enforcement)
-// Increased to 10000 to allow free rotation of massive molecules without clipping/clamping.
+// Z-Axis Constraints
 export const Z_BOUNDS = 10000; 
-// CRITICAL FIX: Lowered Z_SPRING to 0.001 to allow 3D structures to exist deep in Z-space.
-// High values crush 3D molecules into 2D.
 export const Z_SPRING = 0.001; 
 
-export const WORLD_SCALE = 3.3; // Zoomed in ~50% (was 5). Lower scale = High Zoom.
+export const WORLD_SCALE = 3.3; 
 
 // --- CAMERA CONSTANTS ---
-export const FOV = 3500; // Increased to accommodate larger Z-depth
+export const FOV = 3500; 
 
 // Mouse Interaction
-export const MOUSE_SPRING_STIFFNESS = 0.2; // How tight the cursor grip is
-export const MOUSE_SPRING_DAMPING = 0.8;   // Drag reduction while holding
+export const MOUSE_SPRING_STIFFNESS = 0.2; 
+export const MOUSE_SPRING_DAMPING = 0.8;   
 
-// Collision Stiffness (New)
-export const PAULI_STIFFNESS = 3.0; // Lowered to 3.0 to soften materialization shock
+// Collision Stiffness
+export const PAULI_STIFFNESS = 0.5; 
 
 export const COVALENT_Z = new Set([
     1, 2, // H, He

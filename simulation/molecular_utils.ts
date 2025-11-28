@@ -1,10 +1,10 @@
 
-import { Atom } from '../types';
+import { Atom, Molecule } from '../types';
 import { MOLECULES } from '../molecules';
 import { FloatingLabel } from './types';
 import { getMoleculeGroup } from './utils';
 
-export const identifyMolecule = (groupAtoms: Atom[]): string | null => {
+export const identifyMoleculeData = (groupAtoms: Atom[]): Molecule | null => {
     const comp = new Map<number, number>();
     groupAtoms.forEach(a => {
         if (!a) return;
@@ -14,6 +14,11 @@ export const identifyMolecule = (groupAtoms: Atom[]): string | null => {
         if (r.ingredients.length !== comp.size) return false;
         return r.ingredients.every(ing => comp.get(ing.z) === ing.count);
     });
+    return match || null;
+};
+
+export const identifyMolecule = (groupAtoms: Atom[]): string | null => {
+    const match = identifyMoleculeData(groupAtoms);
     return match ? match.name : null;
 };
 

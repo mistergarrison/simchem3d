@@ -60,7 +60,7 @@ export const AnnealingLogic = {
                         redistributeCharge(atoms, bid);
                     }
                     
-                    // Apply Separation Force
+                    // Apply Separation Force (Bug: Implementation mistakenly targets 'a' twice)
                     const b = atoms.find(x => x.id === bid);
                     if (b) {
                         const dx = b.x - a.x;

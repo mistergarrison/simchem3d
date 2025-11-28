@@ -8,6 +8,7 @@ import StandardModelPicker from './components/StandardModelPicker';
 import HelpModal from './components/HelpModal';
 import { ELEMENTS, ELECTRON_ELEM, PROTON_ELEM, NEUTRON_ELEM, getParticleElementData, SM_PARTICLES } from './elements';
 import { ElementData, PaletteItem, Molecule, ToolType, SM_ParticleDef, GameMode, DiscoveryState } from './types';
+import { saveUserConfig, loadUserConfig, clearUserConfig } from './storage';
 
 // Define the default set of items for Sandbox mode
 const DEFAULT_PALETTE: PaletteItem[] = [
@@ -25,9 +26,15 @@ const DEFAULT_PALETTE: PaletteItem[] = [
  * The Root Container and State Orchestrator.
  */
 const App: React.FC = () => {
+  // Load Config from Storage
+  const initialConfig = useMemo(() => loadUserConfig(), []);
+
   // Initialize palette with a unified mix of Particles, Atoms, and defaults
   // In Discovery Mode, we start empty to force experimentation via the Energy Tool.
-  const [palette, setPalette] = useState<PaletteItem[]>([]);
+  const [palette, setPalette] = useState<PaletteItem[]>(() => {
+      if (initialConfig?.gameMode === 'sandbox') return DEFAULT_PALETTE;
+      return [];
+  });
   
   const [isTableOpen, setIsTableOpen] = useState(false);
   const [isMoleculeOpen, setIsMoleculeOpen] = useState(false);
@@ -35,15 +42,16 @@ const App: React.FC = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   
   // --- Game Mode & Discovery ---
-  const [gameMode, setGameMode] = useState<GameMode>('discovery');
-  const [discovered, setDiscovered] = useState<DiscoveryState>({
-      elements: new Set<number>(), 
-      molecules: new Set<string>(),
-      particles: new Set<string>() 
-  });
+  const [gameMode, setGameMode] = useState<GameMode>(initialConfig?.gameMode || 'discovery');
+  
+  const [discovered, setDiscovered] = useState<DiscoveryState>(() => ({
+      elements: new Set(initialConfig?.discovered.elements || []),
+      molecules: new Set(initialConfig?.discovered.molecules || []),
+      particles: new Set(initialConfig?.discovered.particles || [])
+  }));
 
   // Track newly unlocked categories for the "Halo" effect
-  const [newlyUnlocked, setNewlyUnlocked] = useState({
+  const [newlyUnlocked, setNewlyUnlocked] = useState(initialConfig?.newlyUnlocked || {
       particles: false,
       elements: false,
       molecules: false,
@@ -53,11 +61,14 @@ const App: React.FC = () => {
   const unlockTimerRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
   // Slider value 0-100. 50 = 1x real-time speed.
-  const [sliderValue, setSliderValue] = useState(50);
+  const [sliderValue, setSliderValue] = useState(initialConfig?.sliderValue !== undefined ? initialConfig.sliderValue : 50);
   
   // Visual Settings
-  const [showBonds, setShowBonds] = useState(false);
-  const [viewMode, setViewMode] = useState<'solid' | 'glass'>('glass');
+  const [showBonds, setShowBonds] = useState(initialConfig?.showBonds !== undefined ? initialConfig.showBonds : false);
+  const [viewMode, setViewMode] = useState<'solid' | 'glass'>(initialConfig?.viewMode || 'glass');
+  
+  // Debug Mode
+  const [debugMode, setDebugMode] = useState(initialConfig?.debugMode || false);
   
   // Tools
   const [activeTool, setActiveTool] = useState<ToolType>('lasso');
@@ -67,6 +78,33 @@ const App: React.FC = () => {
   const [spawnRequest, setSpawnRequest] = useState<{item: PaletteItem, x?: number, y?: number} | null>(null);
   const [moleculeRequest, setMoleculeRequest] = useState<{molecule: Molecule, id: number} | null>(null);
   const [testTrigger, setTestTrigger] = useState(0);
+
+  // Mobile layout state
+  const [mobileBottomOffset, setMobileBottomOffset] = useState(150);
+
+  // --- PERSISTENCE ---
+  useEffect(() => {
+      saveUserConfig({
+          gameMode,
+          discovered: {
+              elements: Array.from(discovered.elements),
+              molecules: Array.from(discovered.molecules),
+              particles: Array.from(discovered.particles)
+          },
+          newlyUnlocked,
+          sliderValue,
+          showBonds,
+          viewMode,
+          debugMode
+      });
+  }, [gameMode, discovered, newlyUnlocked, sliderValue, showBonds, viewMode, debugMode]);
+
+  const handleClearStorage = useCallback(() => {
+      if (window.confirm("Are you sure you want to clear all progress and settings? This will reload the page.")) {
+          clearUserConfig();
+          window.location.reload();
+      }
+  }, []);
 
   /**
    * Time Scale Calculation
@@ -243,7 +281,7 @@ const App: React.FC = () => {
   const hasDiscoveredParticles = discovered.particles.size > 0;
 
   return (
-    <div className="flex h-screen w-screen bg-black overflow-hidden font-sans">
+    <div className="flex h-[100dvh] w-screen bg-black overflow-hidden font-sans">
       <Sidebar 
         palette={palette}
         onOpenTable={() => { setIsTableOpen(true); clearHalo('elements'); }}
@@ -269,6 +307,10 @@ const App: React.FC = () => {
         hasDiscoveredElements={hasDiscoveredElements}
         hasDiscoveredParticles={hasDiscoveredParticles}
         newlyUnlocked={newlyUnlocked}
+        onLayoutHeightChange={setMobileBottomOffset}
+        debugMode={debugMode}
+        onToggleDebugMode={() => setDebugMode(!debugMode)}
+        onClearStorage={handleClearStorage}
       />
       
       <main className="flex-grow h-full relative bg-neutral-950">
@@ -286,6 +328,8 @@ const App: React.FC = () => {
             testTrigger={testTrigger}
             onUnlockParticle={handleUnlockParticle}
             onDiscovery={handleDiscovery}
+            mobileBottomOffset={mobileBottomOffset}
+            debug={debugMode}
         />
       </main>
 
@@ -317,6 +361,7 @@ const App: React.FC = () => {
         isOpen={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
         discovery={discovered}
+        gameMode={gameMode}
       />
     </div>
   );

@@ -43,7 +43,7 @@ const MoleculePicker: React.FC<MoleculePickerProps> = ({ isOpen, onClose, onSele
         </div>
 
         <div className="overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-          {MOLECULES.filter(r => !r.isHidden).map((molecule) => {
+          {MOLECULES.map((molecule) => {
             const isLocked = gameMode === 'discovery' && !discoveredMolecules.has(molecule.id);
             return (
             <button

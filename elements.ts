@@ -1,4 +1,3 @@
-
 import { ElementData, SM_ParticleDef } from './types';
 
 // Special Subatomic "Elements"
@@ -25,22 +24,21 @@ export const ELECTRON_ELEM: ElementData = {
 
 export const SM_PARTICLES: SM_ParticleDef[] = [
     // --- GENERATION 1 ---
-    { id: 'up', name: 'Up Quark', symbol: 'U', massMeV: 2.2, charge: 0.66, type: 'quark', color: '#FF0000', antiParticleId: 'anti-up', pairThreshold: 4.4 },
-    { id: 'down', name: 'Down Quark', symbol: 'D', massMeV: 4.7, charge: -0.33, type: 'quark', color: '#00FF00', antiParticleId: 'anti-down', pairThreshold: 9.4 },
-    // GAMEPLAY OVERRIDE: Mass set to 93.15 MeV (0.1u) for visibility.
-    { id: 'electron', name: 'Electron', symbol: 'e⁻', massMeV: 93.15, charge: -1, type: 'lepton', color: '#FFFFFF', antiParticleId: 'positron', pairThreshold: 1.022 },
-    { id: 'nu_e', name: 'Electron Neutrino', symbol: 'νe', massMeV: 1e-6, charge: 0, type: 'lepton', color: '#CCCCCC' },
+    { id: 'up', name: 'Up Quark', symbol: 'u', massMeV: 2.2, charge: 0.66, type: 'quark', color: '#FF0000', antiParticleId: 'anti-up', pairThreshold: 4.4 },
+    { id: 'down', name: 'Down Quark', symbol: 'd', massMeV: 4.7, charge: -0.33, type: 'quark', color: '#00FF00', antiParticleId: 'anti-down', pairThreshold: 9.4 },
+    { id: 'electron', name: 'Electron', symbol: 'e⁻', massMeV: 0.511, charge: -1, type: 'lepton', color: '#FFFFFF', antiParticleId: 'positron', pairThreshold: 1.022 },
+    { id: 'nu_e', name: 'Electron Neutrino', symbol: 'νe', massMeV: 1e-6, charge: 0, type: 'lepton', color: '#CCCCCC', antiParticleId: 'anti-nu_e', pairThreshold: 2e-6 },
 
     // --- GENERATION 2 ---
-    { id: 'charm', name: 'Charm Quark', symbol: 'c', massMeV: 1275, charge: 0.66, type: 'quark', color: '#FF0088' },
-    { id: 'strange', name: 'Strange Quark', symbol: 's', massMeV: 95, charge: -0.33, type: 'quark', color: '#00FF88' },
-    { id: 'muon', name: 'Muon', symbol: 'μ', massMeV: 105.7, charge: -1, type: 'lepton', color: '#DDDDDD' },
+    { id: 'charm', name: 'Charm Quark', symbol: 'c', massMeV: 1275, charge: 0.66, type: 'quark', color: '#FF0088', antiParticleId: 'anti-charm', pairThreshold: 2550 },
+    { id: 'strange', name: 'Strange Quark', symbol: 's', massMeV: 95, charge: -0.33, type: 'quark', color: '#00FF88', antiParticleId: 'anti-strange', pairThreshold: 190 },
+    { id: 'muon', name: 'Muon', symbol: 'μ⁻', massMeV: 105.7, charge: -1, type: 'lepton', color: '#DDDDDD', antiParticleId: 'anti-muon', pairThreshold: 211.4 },
     { id: 'nu_mu', name: 'Muon Neutrino', symbol: 'νμ', massMeV: 1e-6, charge: 0, type: 'lepton', color: '#AAAAAA' },
 
     // --- GENERATION 3 ---
-    { id: 'top', name: 'Top Quark', symbol: 't', massMeV: 173000, charge: 0.66, type: 'quark', color: '#FF00FF' },
-    { id: 'bottom', name: 'Bottom Quark', symbol: 'b', massMeV: 4180, charge: -0.33, type: 'quark', color: '#00FFFF' },
-    { id: 'tau', name: 'Tau', symbol: 'τ', massMeV: 1776, charge: -1, type: 'lepton', color: '#BBBBBB' },
+    { id: 'top', name: 'Top Quark', symbol: 't', massMeV: 173000, charge: 0.66, type: 'quark', color: '#FF00FF', antiParticleId: 'anti-top', pairThreshold: 346000 },
+    { id: 'bottom', name: 'Bottom Quark', symbol: 'b', massMeV: 4180, charge: -0.33, type: 'quark', color: '#00FFFF', antiParticleId: 'anti-bottom', pairThreshold: 8360 },
+    { id: 'tau', name: 'Tau', symbol: 'τ⁻', massMeV: 1776, charge: -1, type: 'lepton', color: '#BBBBBB', antiParticleId: 'anti-tau', pairThreshold: 3552 },
     { id: 'nu_tau', name: 'Tau Neutrino', symbol: 'ντ', massMeV: 1e-6, charge: 0, type: 'lepton', color: '#888888' },
 
     // --- BOSONS ---
@@ -54,11 +52,19 @@ export const SM_PARTICLES: SM_ParticleDef[] = [
     { id: 'proton', name: 'Proton', symbol: 'p⁺', massMeV: 938.27, charge: 1, type: 'hadron', color: '#FF3333' },
     { id: 'neutron', name: 'Neutron', symbol: 'n', massMeV: 939.57, charge: 0, type: 'hadron', color: '#3333FF' },
 
-    // --- ANTI-PARTICLES (Mechanics Only) ---
-    // GAMEPLAY OVERRIDE: Mass set to 93.15 MeV (0.1u) for visibility.
-    { id: 'positron', name: 'Positron', symbol: 'e⁺', massMeV: 93.15, charge: 1, type: 'lepton', color: '#FF9999', antiParticleId: 'electron' },
+    // --- ANTI-PARTICLES ---
+    { id: 'positron', name: 'Positron', symbol: 'e⁺', massMeV: 0.511, charge: 1, type: 'lepton', color: '#FF9999', antiParticleId: 'electron' },
     { id: 'anti-up', name: 'Anti-Up Quark', symbol: 'ū', massMeV: 2.2, charge: -0.66, type: 'quark', color: '#FF8888', antiParticleId: 'up' },
     { id: 'anti-down', name: 'Anti-Down Quark', symbol: 'd̄', massMeV: 4.7, charge: 0.33, type: 'quark', color: '#88FF88', antiParticleId: 'down' },
+    
+    { id: 'anti-charm', name: 'Anti-Charm Quark', symbol: 'c̄', massMeV: 1275, charge: -0.66, type: 'quark', color: '#FF88CC', antiParticleId: 'charm' },
+    { id: 'anti-strange', name: 'Anti-Strange Quark', symbol: 's̄', massMeV: 95, charge: 0.33, type: 'quark', color: '#88FFCC', antiParticleId: 'strange' },
+    { id: 'anti-muon', name: 'Anti-Muon', symbol: 'μ⁺', massMeV: 105.7, charge: 1, type: 'lepton', color: '#EEEEEE', antiParticleId: 'muon' },
+    { id: 'anti-nu_e', name: 'Anti-Electron Neutrino', symbol: 'ν̄e', massMeV: 1e-6, charge: 0, type: 'lepton', color: '#AAAAAA', antiParticleId: 'nu_e' },
+    
+    { id: 'anti-top', name: 'Anti-Top Quark', symbol: 't̄', massMeV: 173000, charge: -0.66, type: 'quark', color: '#FF88FF', antiParticleId: 'top' },
+    { id: 'anti-bottom', name: 'Anti-Bottom Quark', symbol: 'b̄', massMeV: 4180, charge: 0.33, type: 'quark', color: '#88FFFF', antiParticleId: 'bottom' },
+    { id: 'anti-tau', name: 'Anti-Tau', symbol: 'τ⁺', massMeV: 1776, charge: 1, type: 'lepton', color: '#DDDDDD', antiParticleId: 'tau' },
 ];
 
 export const getParticleElementData = (pid: string): ElementData => {
@@ -85,7 +91,9 @@ export const getParticleElementData = (pid: string): ElementData => {
         n: p.name,
         v: 0,
         c: p.color,
-        iso: [{ m: p.massMeV / 931.5, hl: "stable" }] // Convert MeV to AMU roughly
+        // Convert mass to AMU approx. For gameplay visibility, we might clamp smallest masses.
+        // 0.511 MeV is approx 0.00055 u. 
+        iso: [{ m: Math.max(0.0005, p.massMeV / 931.5), hl: "stable" }] 
     };
 };
 
@@ -329,7 +337,7 @@ export const ELEMENTS: ElementData[] = [
   { z: 74, s: "W", n: "Tungsten", v: 6, c: "#2194D6", iso: [{ m: 184.0, hl: "stable" }] },
   { z: 75, s: "Re", n: "Rhenium", v: 7, c: "#267DAB", iso: [{ m: 186.0, hl: "stable" }] },
   { z: 76, s: "Os", n: "Osmium", v: 8, c: "#266696", iso: [{ m: 190.0, hl: "stable" }] },
-  { z: 77, s: "Ir", n: "Iridium", v: 4, c: "#175487", iso: [{ m: 192.0, hl: "stable" }] },
+  { z: 77, s: "Ir", n: "Iodine", v: 4, c: "#175487", iso: [{ m: 192.0, hl: "stable" }] },
   { z: 78, s: "Pt", n: "Platinum", v: 4, c: "#D0D0E0", iso: [{ m: 195.0, hl: "stable" }] },
   { z: 79, s: "Au", n: "Gold", v: 3, c: "#FFD123", iso: [{ m: 197.0, hl: "stable" }] },
   { z: 80, s: "Hg", n: "Mercury", v: 2, c: "#B8B8D0", iso: [{ m: 200.0, hl: "stable" }] },
@@ -345,37 +353,234 @@ export const ELEMENTS: ElementData[] = [
   { z: 88, s: "Ra", n: "Radium", v: 2, c: "#007D00", iso: [{ m: 226.0, hl: 1600 }] },
   // Actinides
   { z: 89, s: "Ac", n: "Actinium", v: 3, c: "#70ABFA", iso: [{ m: 227.0, hl: 21.7 }] },
-  { z: 90, s: "Th", n: "Thorium", v: 4, c: "#00BAFF", iso: [{ m: 232.0, hl: 1.4e10 }] },
-  { z: 91, s: "Pa", n: "Protactinium", v: 5, c: "#00A1FF", iso: [{ m: 231.0, hl: 3.2e4 }] },
-  { z: 92, s: "U", n: "Uranium", v: 6, c: "#008FFF", iso: [{ m: 238.0, hl: 4.5e9 }, { m: 235.0, hl: 7e8 }] },
-  { z: 93, s: "Np", n: "Neptunium", v: 6, c: "#0080FF", iso: [{ m: 237.0, hl: 2.1e6 }] },
-  { z: 94, s: "Pu", n: "Plutonium", v: 6, c: "#006BFF", iso: [{ m: 244.0, hl: 8e7 }] },
-  { z: 95, s: "Am", n: "Americium", v: 3, c: "#545CF2", iso: [{ m: 243.0, hl: 7370 }] },
-  { z: 96, s: "Cm", n: "Curium", v: 3, c: "#785CE3", iso: [{ m: 247.0, hl: 1.5e7 }] },
-  { z: 97, s: "Bk", n: "Berkelium", v: 3, c: "#8A4FE3", iso: [{ m: 247.0, hl: 1380 }] },
-  { z: 98, s: "Cf", n: "Californium", v: 3, c: "#A136D4", iso: [{ m: 251.0, hl: 900 }] },
-  { z: 99, s: "Es", n: "Einsteinium", v: 3, c: "#B31FD4", iso: [{ m: 252.0, hl: 1.2 }] },
-  { z: 100, s: "Fm", n: "Fermium", v: 3, c: "#B31FBA", iso: [{ m: 257.0, hl: 100, mode: "alpha", p: { z: 98, m: 253.0 } }] },
-  { z: 101, s: "Md", n: "Mendelevium", v: 3, c: "#B30DA6", iso: [{ m: 258.0, hl: 51 }] },
-  { z: 102, s: "No", n: "Nobelium", v: 2, c: "#BD0D87", iso: [{ m: 259.0, hl: 0.9, mode: "alpha", p: { z: 100, m: 255.0 } }] },
-  { z: 103, s: "Lr", n: "Lawrencium", v: 3, c: "#C70066", iso: [{ m: 262.0, hl: 0.2 }] },
   
-  // Period 7 Continued
-  { z: 104, s: "Rf", n: "Rutherfordium", v: 4, c: "#CC0059", iso: [{ m: 267.0, hl: 0.02, mode: "alpha", p: { z: 102, m: 263.0 } }] },
-  { z: 105, s: "Db", n: "Dubnium", v: 5, c: "#D1004F", iso: [{ m: 268.0, hl: 0.02 }] },
-  { z: 106, s: "Sg", n: "Seaborgium", v: 6, c: "#D90045", iso: [{ m: 271.0, hl: 0.002, mode: "alpha", p: { z: 104, m: 267.0 } }] },
-  { z: 107, s: "Bh", n: "Bohrium", v: 7, c: "#E00038", iso: [{ m: 272.0, hl: 0.01 }] },
-  { z: 108, s: "Hs", n: "Hassium", v: 8, c: "#E6002E", iso: [{ m: 270.0, hl: 0.002, mode: "alpha", p: { z: 106, m: 266.0 } }] },
-  { z: 109, s: "Mt", n: "Meitnerium", v: 0, c: "#EB0026", iso: [{ m: 276.0, hl: 0.001 }] },
-  { z: 110, s: "Ds", n: "Darmstadtium", v: 0, c: "#EB0026", iso: [{ m: 281.0, hl: 0.001, mode: "alpha", p: { z: 108, m: 277.0 } }] },
-  { z: 111, s: "Rg", n: "Roentgenium", v: 0, c: "#EB0026", iso: [{ m: 280.0, hl: 0.001 }] },
-  { z: 112, s: "Cn", n: "Copernicium", v: 2, c: "#EB0026", iso: [{ m: 285.0, hl: 0.001, mode: "alpha", p: { z: 110, m: 281.0 } }] },
-  { z: 113, s: "Nh", n: "Nihonium", v: 3, c: "#EB0026", iso: [{ m: 284.0, hl: 0.001 }] },
-  { z: 114, s: "Fl", n: "Flerovium", v: 4, c: "#EB0026", iso: [{ m: 289.0, hl: 0.001, mode: "alpha", p: { z: 112, m: 285.0 } }] },
-  { z: 115, s: "Mc", n: "Moscovium", v: 5, c: "#EB0026", iso: [{ m: 288.0, hl: 0.001 }] },
-  { z: 116, s: "Lv", n: "Livermorium", v: 6, c: "#EB0026", iso: [{ m: 293.0, hl: 0.001, mode: "alpha", p: { z: 114, m: 289.0 } }] },
-  { z: 117, s: "Ts", n: "Tennessine", v: 7, c: "#EB0026", iso: [{ m: 294.0, hl: 0.001 }] },
+  // Thorium
+  { z: 90, s: "Th", n: "Thorium", v: 4, c: "#00BAFF", iso: [
+      { m: 232.0, hl: 4.43e17, mode: "sf" }, // Th-232
+      { m: 230.0, hl: 2.38e12, mode: "sf" }  // Th-230
+  ]},
+  
+  // Protactinium
+  { z: 91, s: "Pa", n: "Protactinium", v: 5, c: "#00A1FF", iso: [
+      { m: 231.0, hl: 1.03e12, mode: "sf" }
+  ]},
+  
+  // Uranium
+  { z: 92, s: "U", n: "Uranium", v: 6, c: "#008FFF", iso: [
+      { m: 238.0, hl: 1.41e17, mode: "sf" }, 
+      { m: 235.0, hl: 2.22e16, mode: "sf" },
+      { m: 233.0, hl: 5.02e12, mode: "sf" },
+      { m: 234.0, hl: 7.75e12, mode: "sf" },
+      { m: 236.0, hl: 7.39e14, mode: "sf" },
+      { m: 232.0, hl: 2.17e9, mode: "sf" }
+  ]},
+  
+  // Neptunium
+  { z: 93, s: "Np", n: "Neptunium", v: 6, c: "#0080FF", iso: [
+      { m: 237.0, hl: 6.77e13, mode: "sf" }
+  ]},
+  
+  // Plutonium
+  { z: 94, s: "Pu", n: "Plutonium", v: 6, c: "#006BFF", iso: [
+      { m: 244.0, hl: 2.52e15, mode: "sf" },
+      { m: 239.0, hl: 7.61e11, mode: "sf" },
+      { m: 240.0, hl: 2.07e11, mode: "sf" },
+      { m: 238.0, hl: 2.77e9, mode: "sf" },
+      { m: 242.0, hl: 1.18e13, mode: "sf" },
+      { m: 241.0, hl: 4.51e8, mode: "sf" }
+  ]},
+  
+  // Americium
+  { z: 95, s: "Am", n: "Americium", v: 3, c: "#545CF2", iso: [
+      { m: 243.0, hl: 2.33e11, mode: "sf" },
+      { m: 241.0, hl: 1.37e10, mode: "sf" }
+  ]},
+  
+  // Curium
+  { z: 96, s: "Cm", n: "Curium", v: 3, c: "#785CE3", iso: [
+      { m: 247.0, hl: 1.5e7 }, // Existing
+      { m: 248.0, hl: 1.10e13, mode: "sf" },
+      { m: 250.0, hl: 2.62e11, mode: "sf" },
+      { m: 245.0, hl: 2.68e11, mode: "sf" },
+      { m: 246.0, hl: 1.49e11, mode: "sf" },
+      { m: 243.0, hl: 9.18e8, mode: "sf" },
+      { m: 244.0, hl: 5.71e8, mode: "sf" },
+      { m: 242.0, hl: 1.41e7, mode: "sf" }
+  ]},
+  
+  // Berkelium
+  { z: 97, s: "Bk", n: "Berkelium", v: 3, c: "#8A4FE3", iso: [
+      { m: 247.0, hl: 1380 }, // Existing
+      { m: 249.0, hl: 2.85e7, mode: "sf" }
+  ]},
+  
+  // Californium
+  { z: 98, s: "Cf", n: "Californium", v: 3, c: "#A136D4", iso: [
+      { m: 251.0, hl: 900 }, // Existing
+      { m: 249.0, hl: 1.11e10, mode: "sf" },
+      { m: 250.0, hl: 4.13e8, mode: "sf" },
+      { m: 252.0, hl: 8.35e7, mode: "sf" },
+      { m: 248.0, hl: 2.88e7, mode: "sf" },
+      { m: 254.0, hl: 5.23e6, mode: "sf" },
+      { m: 246.0, hl: 1.29e5, mode: "sf" },
+      { m: 256.0, hl: 738, mode: "sf" }
+  ]},
+  
+  // Einsteinium
+  { z: 99, s: "Es", n: "Einsteinium", v: 3, c: "#B31FD4", iso: [
+      { m: 252.0, hl: 1.2 }, // Existing
+      { m: 254.0, hl: 2.38e7, mode: "sf" },
+      { m: 255.0, hl: 3.44e6, mode: "sf" },
+      { m: 253.0, hl: 1.77e6, mode: "sf" }
+  ]},
+  
+  // Fermium
+  { z: 100, s: "Fm", n: "Fermium", v: 3, c: "#B31FBA", iso: [
+      { m: 257.0, hl: 8.68e6, mode: "sf" },
+      { m: 252.0, hl: 9.14e4, mode: "sf" },
+      { m: 255.0, hl: 7.24e4, mode: "sf" },
+      { m: 254.0, hl: 1.17e4, mode: "sf" },
+      { m: 256.0, hl: 9252, mode: "sf" },
+      { m: 259.0, hl: 1.5, mode: "sf" },
+      { m: 260.0, hl: 0.004, mode: "sf" },
+      { m: 242.0, hl: 0.0008, mode: "sf" },
+      { m: 258.0, hl: 0.00037, mode: "sf" }
+  ]},
+  
+  // Mendelevium
+  { z: 101, s: "Md", n: "Mendelevium", v: 3, c: "#B30DA6", iso: [
+      { m: 258.0, hl: 4.45e6, mode: "sf" }
+  ]},
+  
+  // Nobelium
+  { z: 102, s: "No", n: "Nobelium", v: 2, c: "#BD0D87", iso: [
+      { m: 259.0, hl: 0.9, mode: "alpha", p: { z: 100, m: 255.0 } }, // Existing
+      { m: 254.0, hl: 51, mode: "sf" },
+      { m: 256.0, hl: 2.9, mode: "sf" },
+      { m: 252.0, hl: 2.4, mode: "sf" },
+      { m: 258.0, hl: 0.0012, mode: "sf" }
+  ]},
+  
+  // Lawrencium
+  { z: 103, s: "Lr", n: "Lawrencium", v: 3, c: "#C70066", iso: [
+      { m: 262.0, hl: 12960, mode: "sf" },
+      { m: 261.0, hl: 2340, mode: "sf" },
+      { m: 260.0, hl: 180, mode: "sf" },
+      { m: 256.0, hl: 27, mode: "sf" },
+      { m: 255.0, hl: 22, mode: "sf" },
+      { m: 254.0, hl: 13, mode: "sf" },
+      { m: 259.0, hl: 6.2, mode: "sf" },
+      { m: 258.0, hl: 3.9, mode: "sf" },
+      { m: 257.0, hl: 0.6, mode: "sf" },
+      { m: 253.0, hl: 0.57, mode: "sf" }
+  ]},
+  
+  // Period 7 Continued (Transactinides)
+  
+  // Rutherfordium (104)
+  { z: 104, s: "Rf", n: "Rutherfordium", v: 4, c: "#CC0059", iso: [
+      { m: 263.0, hl: 900, mode: "sf" },
+      { m: 261.0, hl: 78, mode: "sf" },
+      { m: 262.0, hl: 2.1, mode: "sf" },
+      { m: 255.0, hl: 1.64, mode: "sf" },
+      { m: 260.0, hl: 0.021, mode: "sf" },
+      { m: 253.0, hl: 0.013, mode: "sf" },
+      { m: 258.0, hl: 0.012, mode: "sf" },
+      { m: 256.0, hl: 0.0064, mode: "sf" },
+      { m: 254.0, hl: 0.000023, mode: "sf" }
+  ]},
+  
+  // Dubnium (105)
+  { z: 105, s: "Db", n: "Dubnium", v: 5, c: "#D1004F", iso: [
+      { m: 268.0, hl: 108000 }, // Existing (30h?)
+      { m: 267.0, hl: 4320, mode: "sf" },
+      { m: 263.0, hl: 27, mode: "sf" }
+  ]},
+  
+  // Seaborgium (106)
+  { z: 106, s: "Sg", n: "Seaborgium", v: 6, c: "#D90045", iso: [
+      { m: 271.0, hl: 144, mode: "sf" },
+      { m: 261.0, hl: 0.23, mode: "sf" },
+      { m: 258.0, hl: 0.0029, mode: "sf" }
+  ]},
+  
+  // Bohrium (107)
+  { z: 107, s: "Bh", n: "Bohrium", v: 7, c: "#E00038", iso: [
+      { m: 270.0, hl: 61, mode: "sf" },
+      { m: 274.0, hl: 54, mode: "sf" },
+      { m: 267.0, hl: 17, mode: "sf" },
+      { m: 272.0, hl: 9.8, mode: "sf" }
+  ]},
+  
+  // Hassium (108)
+  { z: 108, s: "Hs", n: "Hassium", v: 8, c: "#E6002E", iso: [
+      { m: 269.0, hl: 9.7, mode: "sf" },
+      { m: 270.0, hl: 3.6, mode: "sf" },
+      { m: 271.0, hl: 40, mode: "sf" },
+      { m: 273.0, hl: 76, mode: "sf" },
+      { m: 277.0, hl: 240, mode: "sf" }
+  ]},
+  
+  // Meitnerium (109)
+  { z: 109, s: "Mt", n: "Meitnerium", v: 0, c: "#EB0026", iso: [
+      { m: 278.0, hl: 4.5, mode: "sf" },
+      { m: 276.0, hl: 0.7, mode: "sf" },
+      { m: 274.0, hl: 0.4, mode: "sf" }
+  ]},
+  
+  // Darmstadtium (110)
+  { z: 110, s: "Ds", n: "Darmstadtium", v: 0, c: "#EB0026", iso: [
+      { m: 281.0, hl: 13, mode: "sf" },
+      { m: 279.0, hl: 0.18, mode: "sf" }
+  ]},
+  
+  // Roentgenium (111)
+  { z: 111, s: "Rg", n: "Roentgenium", v: 0, c: "#EB0026", iso: [
+      { m: 281.0, hl: 26, mode: "sf" },
+      { m: 280.0, hl: 3.6, mode: "sf" },
+      { m: 282.0, hl: 0.5, mode: "sf" }
+  ]},
+  
+  // Copernicium (112)
+  { z: 112, s: "Cn", n: "Copernicium", v: 2, c: "#EB0026", iso: [
+      { m: 285.0, hl: 29, mode: "sf" },
+      { m: 283.0, hl: 4, mode: "sf" }
+  ]},
+  
+  // Nihonium (113)
+  { z: 113, s: "Nh", n: "Nihonium", v: 3, c: "#EB0026", iso: [
+      { m: 286.0, hl: 19.6, mode: "sf" },
+      { m: 285.0, hl: 5.5, mode: "sf" }
+  ]},
+  
+  // Flerovium (114)
+  { z: 114, s: "Fl", n: "Flerovium", v: 4, c: "#EB0026", iso: [
+      { m: 289.0, hl: 2.6, mode: "sf" },
+      { m: 288.0, hl: 0.8, mode: "sf" },
+      { m: 286.0, hl: 0.1, mode: "sf" }
+  ]},
+  
+  // Moscovium (115)
+  { z: 115, s: "Mc", n: "Moscovium", v: 5, c: "#EB0026", iso: [
+      { m: 290.0, hl: 0.6, mode: "sf" },
+      { m: 289.0, hl: 0.22, mode: "sf" },
+      { m: 288.0, hl: 0.16, mode: "sf" }
+  ]},
+  
+  // Livermorium (116)
+  { z: 116, s: "Lv", n: "Livermorium", v: 6, c: "#EB0026", iso: [
+      { m: 293.0, hl: 0.053, mode: "sf" },
+      { m: 292.0, hl: 0.018, mode: "sf" }
+  ]},
+  
+  // Tennessine (117)
+  { z: 117, s: "Ts", n: "Tennessine", v: 7, c: "#EB0026", iso: [
+      { m: 294.0, hl: 0.07, mode: "sf" },
+      { m: 293.0, hl: 0.022, mode: "sf" }
+  ]},
+  
+  // Oganesson (118)
   { z: 118, s: "Og", n: "Oganesson", v: 8, c: "#FF0000", iso: [
-      { m: 294.0, hl: 0.001, mode: "alpha", p: { z: 116, m: 290.0 } }
+      { m: 294.0, hl: 0.0007, mode: "sf" }
   ]}
 ];

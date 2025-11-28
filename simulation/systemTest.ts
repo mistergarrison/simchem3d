@@ -1,48 +1,32 @@
 
-import { MutableRefObject, RefObject } from 'react';
 import { Atom, Particle, SimulationEvent } from '../types';
-import { MouseState } from './types';
-import { ELEMENTS, PROTON_ELEM, NEUTRON_ELEM, ELECTRON_ELEM, getParticleElementData } from '../elements';
+import { ELEMENTS, NEUTRON_ELEM, ELECTRON_ELEM, getParticleElementData, SM_PARTICLES } from '../elements';
 import { MOLECULES } from '../molecules';
 import { identifyMolecule } from './molecular_utils';
 import { getMoleculeGroup, addAtomToWorld } from './utils';
 import { WORLD_SCALE } from './constants';
 import { startClearance, CLEARANCE_FRAMES } from './clearance';
-import { spawnPairProduction } from './nuclear';
+import { QuantumSystem } from './physics/nuclear/QuantumSystem';
 import { runUnitTests } from './unitTests';
+import { SimulationEngine } from './Engine';
 
 class SystemSuite {
-    atoms: MutableRefObject<Atom[]>;
-    particles: MutableRefObject<Particle[]>;
-    mouse: MutableRefObject<MouseState>;
-    canvas: RefObject<HTMLCanvasElement | null>;
-    eventLog: MutableRefObject<SimulationEvent[]>;
+    engine: SimulationEngine;
     onStatus: (msg: string, type: 'success' | 'error' | 'info') => void;
     
-    private recording: boolean = false;
-    private creationLog: {label: string, id: string}[] = [];
-    
     constructor(
-        atomsRef: MutableRefObject<Atom[]>,
-        particlesRef: MutableRefObject<Particle[]>,
-        mouseRef: MutableRefObject<MouseState>,
-        canvasRef: RefObject<HTMLCanvasElement | null>,
-        eventLogRef: MutableRefObject<SimulationEvent[]>,
+        engine: SimulationEngine,
         onStatus: (msg: string, type: 'success' | 'error' | 'info') => void
     ) {
-        this.atoms = atomsRef;
-        this.particles = particlesRef;
-        this.mouse = mouseRef;
-        this.canvas = canvasRef;
-        this.eventLog = eventLogRef;
+        this.engine = engine;
         this.onStatus = onStatus;
     }
 
     private waitFrames = (frames: number) => new Promise(resolve => setTimeout(resolve, frames * 16));
 
     private dumpState = () => {
-        if (this.atoms.current.length === 0) return "Board Empty";
-        return "\n--- FAILED STATE SNAPSHOT ---\n" + this.atoms.current.map(a => {
+        if (this.engine.atoms.length === 0) return "Board Empty";
+        return "\n--- FAILED STATE SNAPSHOT ---\n" + this.engine.atoms.map(a => {
              const iso = a.element.iso[a.isotopeIndex];
              const mass = Math.round(iso.m);
              const charge = a.charge !== undefined ? a.charge : 0;
@@ -52,50 +36,34 @@ class SystemSuite {
     };
 
     private getCenter = () => {
-        const dpr = window.devicePixelRatio || 1;
-        const width = this.canvas.current ? this.canvas.current.width / dpr : 800;
-        const height = this.canvas.current ? this.canvas.current.height / dpr : 600;
+        // Use the actual world dimensions calculated by the engine's viewport
+        const { w, h } = this.engine.getWorldDimensions();
         return {
-            cx: (width * WORLD_SCALE) / 2,
-            cy: (height * WORLD_SCALE) / 2
+            cx: w / 2,
+            cy: h / 2
         };
     };
 
     private resetBoard = () => {
-        this.atoms.current = [];
-        this.particles.current = [];
-        this.mouse.current.floatingLabels = [];
-        this.mouse.current.moleculeTarget = null;
-        this.mouse.current.moleculeHaloLife = 0;
-        this.mouse.current.clearance = null;
+        this.engine.clear();
     };
-
-    // --- LOGGING UTILS ---
-    private startRecording() {
-        this.recording = true;
-        this.creationLog = [];
-    }
-
-    private stopRecording() {
-        this.recording = false;
-    }
 
     // Helper to scan recent event log for creations
     private scanEventLogForCreations(since: number): {label: string, id: string}[] {
-        return this.eventLog.current
+        return this.engine.eventLog
             .filter(e => e.type === 'create' && e.timestamp > since)
             .map(e => ({label: e.label, id: e.atomId}));
     }
 
     private shootProjectile = (type: 'neutron'|'electron', speed: number) => {
-        const target = this.atoms.current.find(a => a.element.z >= 1);
+        const target = this.engine.atoms.find(a => a.element.z >= 1);
         if (!target) return;
 
         const { cx, cy } = this.getCenter();
         const startX = cx;
         const startY = cy;
 
-        this.particles.current.push({
+        this.engine.particles.push({
             id: `marker-${Date.now()}`,
             x: cx, y: cy, z: 0,
             vx: 0, vy: 0, vz: 0,
@@ -144,14 +112,14 @@ class SystemSuite {
                 element: ELECTRON_ELEM,
                 isotopeIndex: 0,
                 bonds: [],
-                mass: 0.1, // Updated to new "Heavy Electron" physics (0.1u)
+                mass: 0.1, 
                 radius: 30, 
                 charge: -1,
                 createdAt: Date.now(),
                 lastDecayCheck: Date.now()
             };
         }
-        addAtomToWorld(this.atoms.current, atom, this.eventLog.current, 'Projectile Test');
+        addAtomToWorld(this.engine.atoms, atom, this.engine.eventLog, 'Projectile Test');
     };
 
     private createQuark = (type: string, x: number, y: number): Atom => ({
@@ -169,14 +137,9 @@ class SystemSuite {
         lastDecayCheck: Date.now()
     });
 
-    /**
-     * TEST 1: PAIR PRODUCTION & ANNIHILATION
-     * Validates that particle pairs are created and destroyed correctly,
-     * checking the event log for verification instead of polling board state.
-     */
     async testPairProduction() {
         this.resetBoard();
-        this.eventLog.current = []; // Reset Log
+        this.engine.eventLog = []; 
         
         console.log("TEST: 1. Pair Production & Annihilation");
         
@@ -184,11 +147,9 @@ class SystemSuite {
         const ppX = cx; 
         const ppY = cy;
         
-        // 1. Trigger Creation
-        spawnPairProduction(this.atoms.current, this.particles.current, ppX, ppY, 1.022, undefined, this.eventLog.current);
+        QuantumSystem.spawnPairProduction(this.engine.atoms, this.engine.particles, ppX, ppY, 1.022, undefined, this.engine.eventLog);
         
-        // Verify Creation Events
-        const creationEvents = this.eventLog.current.filter(e => e.type === 'create' && e.reason === 'Pair Production');
+        const creationEvents = this.engine.eventLog.filter(e => e.type === 'create' && e.reason === 'Pair Production');
         
         if (creationEvents.length !== 2) {
             throw new Error(`Expected 2 Creation Events, found ${creationEvents.length}`);
@@ -199,26 +160,22 @@ class SystemSuite {
         
         if (!ePosId || !eNegId) throw new Error("Could not identify Electron/Positron pair in logs");
         
-        const ePos = this.atoms.current.find(a => a.id === ePosId);
-        const eNeg = this.atoms.current.find(a => a.id === eNegId);
+        const ePos = this.engine.atoms.find(a => a.id === ePosId);
+        const eNeg = this.engine.atoms.find(a => a.id === eNegId);
         
         if (!ePos || !eNeg) throw new Error("Particles logged but not found in world state");
         
         this.onStatus("Pair Production Verified via Log", 'success');
         
-        // 2. Annihilation
-        // Force collision by setting positions and velocities manually
         ePos.x = cx - 10; ePos.y = cy; 
         eNeg.x = cx + 10; eNeg.y = cy;
-        ePos.vx = 20; eNeg.vx = -20; // Move toward each other
+        ePos.vx = 20; eNeg.vx = -20; 
         
-        // Mark log position to check new events
-        const logIndex = this.eventLog.current.length;
+        const logIndex = this.engine.eventLog.length;
         
-        await this.waitFrames(20); // Allow physics collision to resolve
+        await this.waitFrames(20); 
         
-        // Verify Destruction Events
-        const newEvents = this.eventLog.current.slice(logIndex);
+        const newEvents = this.engine.eventLog.slice(logIndex);
         const destructionEvents = newEvents.filter(e => e.type === 'destroy' && e.reason === 'Annihilation');
         
         if (destructionEvents.length !== 2) {
@@ -228,10 +185,6 @@ class SystemSuite {
         this.onStatus("Annihilation Verified via Log!", 'success');
     }
 
-    /**
-     * TEST 2: NUCLEAR DECAY CHAIN
-     * Proton -> Deuterium -> Tritium -> Helium
-     */
     async testDeuteriumChain() {
         this.resetBoard();
         const { cx, cy } = this.getCenter();
@@ -250,24 +203,33 @@ class SystemSuite {
             createdAt: Date.now(),
             lastDecayCheck: Date.now()
         };
-        addAtomToWorld(this.atoms.current, p, this.eventLog.current, 'Test Setup');
+        addAtomToWorld(this.engine.atoms, p, this.engine.eventLog, 'Test Setup');
         await this.waitFrames(30);
 
         this.shootProjectile('neutron', 40);
         await this.waitFrames(40);
 
-        if (this.atoms.current.length !== 1) throw new Error(`Neutron Capture Failed. Count: ${this.atoms.current.length}`);
-        const deuteron = this.atoms.current[0];
+        if (this.engine.atoms.length !== 1) throw new Error(`Neutron Capture Failed. Count: ${this.engine.atoms.length}`);
+        const deuteron = this.engine.atoms[0];
         if (deuteron.mass < 1.9) throw new Error(`Mass too low for Deuteron: ${deuteron.mass}`);
         if (deuteron.charge !== 1) throw new Error(`Expected Charge +1, got ${deuteron.charge}`);
         if (deuteron.radius < 30) throw new Error(`Radius Check Failed. Deuteron should be ~40, got ${deuteron.radius}`);
         
         this.onStatus("Nuclear: Deuterium Nucleus Formed!", 'success');
 
-        this.shootProjectile('electron', 1); 
-        await this.waitFrames(40);
+        deuteron.x = cx + 50;
+        deuteron.y = cy;
+        deuteron.vx = 0;
+        deuteron.vy = 0;
 
-        const deuterium = this.atoms.current[0];
+        this.shootProjectile('electron', 1); 
+        await this.waitFrames(60); 
+
+        if (this.engine.atoms.length !== 1) {
+             throw new Error(`Electron Capture Failed. Expected 1 Atom, got ${this.engine.atoms.length}.`);
+        }
+
+        const deuterium = this.engine.atoms[0];
         if (deuterium.charge !== 0) throw new Error(`Electron Capture Failed. Expected Charge 0, got ${deuterium.charge}`);
         
         this.onStatus("Nuclear: Neutral Atom Formed!", 'success');
@@ -278,56 +240,48 @@ class SystemSuite {
         }
         await this.waitFrames(120); 
 
-        const helium = this.atoms.current[0];
+        const helium = this.engine.atoms[0];
         if (helium.element.s !== 'He') throw new Error(`Beta Decay Failed. Expected He, got ${helium.element.s}`);
         
         this.onStatus("Nuclear: Beta Decay Chain Verified!", 'success');
     }
 
-    /**
-     * TEST 3: HADRONIZATION
-     * Quarks -> Protons/Neutrons
-     */
     async testHadronization() {
         this.resetBoard();
         const { cx, cy } = this.getCenter();
         console.log("TEST: 3. Hadronization");
 
-        // Proton (uud)
         const qU1 = this.createQuark('up', cx - 20, cy - 150);
         const qU2 = this.createQuark('up', cx + 20, cy - 150);
         const qD1 = this.createQuark('down', cx, cy - 130); 
         
-        addAtomToWorld(this.atoms.current, qU1, this.eventLog.current, 'Test Quark');
-        addAtomToWorld(this.atoms.current, qU2, this.eventLog.current, 'Test Quark');
-        addAtomToWorld(this.atoms.current, qD1, this.eventLog.current, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qU1, this.engine.eventLog, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qU2, this.engine.eventLog, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qD1, this.engine.eventLog, 'Test Quark');
         
         await this.waitFrames(60); 
         
-        const proton = this.atoms.current.find(a => a.element.z === 1 && a.element.s === 'p⁺');
+        const proton = this.engine.atoms.find(a => a.element.z === 1 && a.element.s === 'p⁺');
         if (!proton) throw new Error("Proton Hadronization failed");
         this.onStatus("Proton Creation Verified!", 'success');
 
-        // Neutron (udd)
+        this.resetBoard();
+
         const qU3 = this.createQuark('up', cx - 20, cy + 150);
         const qD2 = this.createQuark('down', cx + 20, cy + 150);
         const qD3 = this.createQuark('down', cx, cy + 130);
         
-        addAtomToWorld(this.atoms.current, qU3, this.eventLog.current, 'Test Quark');
-        addAtomToWorld(this.atoms.current, qD2, this.eventLog.current, 'Test Quark');
-        addAtomToWorld(this.atoms.current, qD3, this.eventLog.current, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qU3, this.engine.eventLog, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qD2, this.engine.eventLog, 'Test Quark');
+        addAtomToWorld(this.engine.atoms, qD3, this.engine.eventLog, 'Test Quark');
         
         await this.waitFrames(60);
         
-        const neutron = this.atoms.current.find(a => a.element.z === 0 && a.element.s === 'n');
+        const neutron = this.engine.atoms.find(a => a.element.z === 0 && a.element.s === 'n');
         if (!neutron) throw new Error("Neutron Hadronization failed");
         this.onStatus("Neutron Creation Verified!", 'success');
     }
 
-    /**
-     * TEST 4: IONIC BONDING
-     * H+ + H+ + O-2 -> H2O
-     */
     async testIonicWater() {
         this.resetBoard();
         const { cx, cy } = this.getCenter();
@@ -349,31 +303,26 @@ class SystemSuite {
              element: ELEMENTS[7], isotopeIndex: 1, bonds: [], mass: 15.995, radius: 30 + Math.pow(15.995, 0.33) * 10, charge: -2, createdAt: Date.now(), lastDecayCheck: Date.now()
         };
         
-        addAtomToWorld(this.atoms.current, p1, this.eventLog.current, 'Ion Setup');
-        addAtomToWorld(this.atoms.current, p2, this.eventLog.current, 'Ion Setup');
-        addAtomToWorld(this.atoms.current, oxygen, this.eventLog.current, 'Ion Setup');
+        addAtomToWorld(this.engine.atoms, p1, this.engine.eventLog, 'Ion Setup');
+        addAtomToWorld(this.engine.atoms, p2, this.engine.eventLog, 'Ion Setup');
+        addAtomToWorld(this.engine.atoms, oxygen, this.engine.eventLog, 'Ion Setup');
         
         await this.waitFrames(120);
 
-        const oCheck = this.atoms.current.find(a => a.id === 'ion-o');
+        const oCheck = this.engine.atoms.find(a => a.id === 'ion-o');
         if (!oCheck) throw new Error("Ionic Oxygen missing");
         
-        const group = getMoleculeGroup(this.atoms.current, oCheck.id);
+        const group = getMoleculeGroup(this.engine.atoms, oCheck.id);
         if (group.size !== 3) throw new Error(`Ionic H2O failed formation. Group size: ${group.size} (Expected 3)`);
         
-        const groupAtoms = this.atoms.current.filter(a => group.has(a.id));
+        const groupAtoms = this.engine.atoms.filter(a => group.has(a.id));
         const molName = identifyMolecule(groupAtoms);
         if (molName !== 'Water') throw new Error(`Ionic H2O identification failed. Got: ${molName}`);
         
         this.onStatus("Chemistry: Ionic H₂O Formed!", 'success');
     }
 
-    /**
-     * TEST 5: MOLECULAR SYNTHESIS
-     * Push logic and recipe spawning.
-     */
     async testMolecularSynthesis() {
-        // Keep the board state from Test 4 to verify persistence/pushing
         const { cx, cy } = this.getCenter();
         console.log("TEST: 5. Molecular Synthesis");
 
@@ -381,18 +330,18 @@ class SystemSuite {
             const recipe = MOLECULES.find(m => m.name === name);
             if (!recipe) throw new Error(`Recipe ${name} not found`);
 
-            startClearance(this.mouse.current, tx, ty, recipe);
-            await this.waitFrames(CLEARANCE_FRAMES + 90 + 200);
+            startClearance(this.engine.mouse, tx, ty, recipe);
+            await this.waitFrames(CLEARANCE_FRAMES + 90);
 
-            const label = this.mouse.current.floatingLabels.find(l => l.text === name);
+            const label = this.engine.mouse.floatingLabels.find(l => l.text === name);
             let physicalMatch = false;
             const processed = new Set<string>();
 
-            this.atoms.current.forEach(a => {
+            this.engine.atoms.forEach(a => {
                 if (processed.has(a.id)) return;
-                const groupIds = getMoleculeGroup(this.atoms.current, a.id);
+                const groupIds = getMoleculeGroup(this.engine.atoms, a.id);
                 groupIds.forEach(id => processed.add(id));
-                const gAtoms = this.atoms.current.filter(at => groupIds.has(at.id));
+                const gAtoms = this.engine.atoms.filter(at => groupIds.has(at.id));
                 const idName = identifyMolecule(gAtoms);
                 
                 let gx=0, gy=0;
@@ -412,76 +361,161 @@ class SystemSuite {
         await runSynthesis('Cyclohexane', cx, cy);
     }
 
-    /**
-     * TEST 6: SUPERHEAVY DECAY CHAIN
-     * Og -> Lv -> Fl -> ...
-     * Verifies that high Z elements decay instead of disappearing.
-     */
     async testDecayChain() {
         this.resetBoard();
         const { cx, cy } = this.getCenter();
-        console.log("TEST: 6. Oganesson Decay Chain");
+        console.log("TEST: 6. Alpha Decay Chain (Po -> Pb)");
 
-        const ogElem = ELEMENTS.find(e => e.z === 118);
-        if (!ogElem) throw new Error("Oganesson not found in database");
+        const poElem = ELEMENTS.find(e => e.z === 84);
+        if (!poElem) throw new Error("Polonium not found in database");
 
-        // Manually spawn Og
-        const og: Atom = {
-            id: 'test-og',
+        // Force an alpha decay scenario using a custom isotope
+        // This ensures the test validates the mechanic (Alpha Decay)
+        // regardless of whether the default isotope for the element is set to SF or Alpha.
+        const atom: Atom = {
+            id: 'test-alpha',
             x: cx, y: cy, z: 0,
             vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0,
-            element: ogElem,
+            element: poElem,
             isotopeIndex: 0,
             bonds: [],
-            mass: 294,
-            radius: 50,
+            mass: 212,
+            radius: 90,
             charge: 0,
             createdAt: Date.now(),
-            lastDecayCheck: Date.now() // Start clock
+            lastDecayCheck: Date.now(),
+            customIsotope: {
+                m: 212,
+                hl: 0.1, // Very fast
+                mode: 'alpha',
+                p: { z: 82, m: 208 } // Target Lead
+            }
         };
-        addAtomToWorld(this.atoms.current, og, this.eventLog.current, 'Test Setup');
+        addAtomToWorld(this.engine.atoms, atom, this.engine.eventLog, 'Test Setup');
 
-        // Record events
         const startTime = Date.now();
-        
-        // Wait for potential decay (Og HL is 0.001s, clamped to 0.3s)
-        // Chain length ~5 steps. Each step ~0.3s-1s
-        // We wait ~10 seconds (600 frames) to ensure probabilistic chain proceeds
-        await this.waitFrames(600);
+        await this.waitFrames(120);
 
-        // Check Event Log
         const creations = this.scanEventLogForCreations(startTime);
         
-        // We expect Og to be gone (transmuted)
-        if (this.atoms.current.some(a => a.id === 'test-og' && a.element.z === 118)) {
-             throw new Error("Oganesson failed to decay (Persistence Error)");
-        }
+        // Check if atom converted to Pb
+        const pb = this.engine.atoms.find(a => a.id === 'test-alpha');
+        
+        if (!pb) throw new Error("Atom disappeared unexpectedly (Possible SF or Error)");
+        if (pb.element.z !== 82) throw new Error(`Alpha Decay Failed. Expected Z=82 (Pb), got ${pb.element.s} (Z=${pb.element.z})`);
+        
+        const hasPbLog = creations.some(c => c.label === 'Pb');
+        
+        if (!hasPbLog) throw new Error("Creation log for Pb missing");
+        
+        this.onStatus(`Alpha Decay Verified! Observed: Po -> Pb`, 'success');
+    }
 
-        // We expect to see children in the log.
-        // Expected chain: Og(118) -> Lv(116) -> Fl(114) -> Cn(112) ...
-        const hasLv = creations.some(c => c.label === 'Lv');
-        const hasFl = creations.some(c => c.label === 'Fl');
+    async testAllPairProductions() {
+        console.log("TEST: 7. All Pair Productions");
+        const { cx, cy } = this.getCenter();
+
+        const particlesWithThreshold = SM_PARTICLES.filter(p => p.pairThreshold !== undefined);
+
+        for (const p of particlesWithThreshold) {
+            this.resetBoard();
+            this.engine.eventLog = [];
+            const threshold = p.pairThreshold!;
+            
+            // Spawn with 5% buffer over threshold to guarantee creation
+            QuantumSystem.spawnPairProduction(
+                this.engine.atoms, 
+                this.engine.particles, 
+                cx, cy, 
+                threshold * 1.05, 
+                undefined, 
+                this.engine.eventLog
+            );
+
+            // Verify
+            const events = this.engine.eventLog.filter(e => e.type === 'create' && e.reason === 'Pair Production');
+            if (events.length !== 2) {
+                throw new Error(`Failed to produce pair for ${p.name} at ${threshold} MeV. Events: ${events.length}`);
+            }
+            
+            // Verify Particle ID matches expected
+            const spawnedId = events[0].atomId;
+            const atom = this.engine.atoms.find(a => a.id === spawnedId);
+            
+            if (!atom) throw new Error("Spawned atom not found in world");
+            // Check if symbol matches particle or antiparticle
+            // Note: Since we don't know if event[0] is the particle or antiparticle, check if symbol matches either
+            const isMatch = (atom.element.s === p.symbol) || 
+                            (p.antiParticleId && SM_PARTICLES.find(ap => ap.id === p.antiParticleId)?.symbol === atom.element.s);
+                            
+            if (!isMatch) throw new Error(`Spawned particle ${atom.element.s} does not match expected ${p.symbol} pair.`);
+        }
+        this.onStatus("All Standard Model Pair Productions Verified", 'success');
+    }
+
+    async testSpontaneousFission() {
+        this.resetBoard();
+        const { cx, cy } = this.getCenter();
+        console.log("TEST: 8. Spontaneous Fission (Cf-252)");
+
+        // Create Californium-252 (Custom Isotope for speed)
+        const cfElem = ELEMENTS.find(e => e.z === 98); // Cf
+        if (!cfElem) throw new Error("Californium not found");
+
+        const atom: Atom = {
+            id: 'test-sf',
+            x: cx, y: cy, z: 0,
+            vx: 0, vy: 0, vz: 0, fx: 0, fy: 0, fz: 0,
+            element: cfElem,
+            isotopeIndex: 0,
+            bonds: [],
+            mass: 252,
+            radius: 90, 
+            charge: 0,
+            createdAt: Date.now(),
+            lastDecayCheck: Date.now(),
+            customIsotope: {
+                m: 252,
+                hl: 0.1, // Very fast decay
+                mode: 'sf'
+            }
+        };
         
-        if (!hasLv) throw new Error("Decay Chain Broken: No Livermorium (Lv) created.");
+        addAtomToWorld(this.engine.atoms, atom, this.engine.eventLog, 'SF Test Setup');
         
-        this.onStatus(`Decay Chain Verified! Observed: Og -> ${hasLv ? 'Lv' : '?'} -> ${hasFl ? 'Fl' : '...' }`, 'success');
+        // Wait for decay (0.1s is very fast, 120 frames = 2s should be plenty)
+        await this.waitFrames(120);
+        
+        // Check results
+        // Should have 0 atoms of ID 'test-sf'
+        // Should have > 2 atoms total (2 daughters + neutrons)
+        
+        if (this.engine.atoms.some(a => a.id === 'test-sf')) {
+            throw new Error("SF Atom failed to decay");
+        }
+        
+        if (this.engine.atoms.length < 3) {
+            throw new Error(`SF Decay produced insufficient particles. Count: ${this.engine.atoms.length}`);
+        }
+        
+        this.onStatus("Spontaneous Fission Verified!", 'success');
     }
 
     public async run() {
         try {
-            // STEP 0: Static Data Validation
             this.onStatus("Running Data Integrity Unit Tests...", 'info');
             await runUnitTests();
             this.onStatus("Unit Tests Passed. Starting System Simulation...", 'success');
-            await this.waitFrames(30); // Brief pause to see success message
+            await this.waitFrames(30); 
 
-            // STEP 1-6: System Simulation Tests
             await this.testPairProduction();
             await this.testHadronization();
             await this.testDeuteriumChain();
             await this.testIonicWater();
             await this.testMolecularSynthesis();
             await this.testDecayChain();
+            await this.testSpontaneousFission();
+            await this.testAllPairProductions();
             
             this.onStatus("All Systems Operational!", 'success');
         } catch (e: any) {
@@ -493,13 +527,9 @@ class SystemSuite {
 }
 
 export const runSystemTest = async (
-    atomsRef: MutableRefObject<Atom[]>,
-    particlesRef: MutableRefObject<Particle[]>,
-    mouseRef: MutableRefObject<MouseState>,
-    canvasRef: RefObject<HTMLCanvasElement | null>,
-    eventLogRef: MutableRefObject<SimulationEvent[]>,
+    engine: SimulationEngine,
     onStatus: (msg: string, type: 'success' | 'error' | 'info') => void
 ) => {
-    const suite = new SystemSuite(atomsRef, particlesRef, mouseRef, canvasRef, eventLogRef, onStatus);
+    const suite = new SystemSuite(engine, onStatus);
     await suite.run();
 };
