@@ -355,19 +355,19 @@ const App: React.FC = () => {
         onOpenTable={() => { setIsTableOpen(true); clearHalo('elements'); }}
         onOpenMolecules={() => { setIsMoleculeOpen(true); clearHalo('molecules'); }}
         onOpenStandardModel={() => { setIsStandardModelOpen(true); clearHalo('particles'); }}
-        onOpenHelp={() => { setIsHelpOpen(true); setNewHelpContent(false); }}
+        onOpenHelp={() => setIsHelpOpen(true)}
         onRemoveFromPalette={handleRemoveFromPalette}
         onUpdateIsotope={handleUpdateIsotope}
         sliderValue={sliderValue}
         setSliderValue={setSliderValue}
-        onClear={() => setClearTrigger(prev => prev + 1)}
+        onClear={() => setClearTrigger(c => c + 1)}
         onSpawnItem={handleSpawnItem}
         showBonds={showBonds}
         onToggleBonds={() => setShowBonds(!showBonds)}
         viewMode={viewMode}
-        onToggleViewMode={() => setViewMode(prev => prev === 'solid' ? 'glass' : 'solid')}
+        onToggleViewMode={() => setViewMode(v => v === 'solid' ? 'glass' : 'solid')}
         activeTool={activeTool}
-        onSelectTool={(tool) => { setActiveTool(tool); if(tool === 'lasso') clearHalo('lasso'); }}
+        onSelectTool={setActiveTool}
         onRunTest={() => setTestTrigger(t => t + 1)}
         gameMode={gameMode}
         onToggleGameMode={handleToggleGameMode}
@@ -384,7 +384,7 @@ const App: React.FC = () => {
         newHelpContent={newHelpContent}
       />
       
-      <main className="flex-grow h-full relative bg-neutral-950">
+      <div className="flex-grow relative bg-black cursor-crosshair">
         <Canvas 
             timeScale={timeScale}
             isPlaying={isPlaying}
@@ -401,35 +401,33 @@ const App: React.FC = () => {
             mobileBottomOffset={mobileBottomOffset}
             debug={debugMode}
         />
-      </main>
+      </div>
 
+      {/* Modals */}
       <PeriodicTable 
-        isOpen={isTableOpen}
-        onClose={() => setIsTableOpen(false)}
-        onSelect={handleAddAtom}
+        isOpen={isTableOpen} 
+        onClose={() => setIsTableOpen(false)} 
+        onSelect={handleAddAtom} 
         gameMode={gameMode}
         discoveredElements={discovered.elements}
       />
-
-      <MoleculePicker
-        isOpen={isMoleculeOpen}
-        onClose={() => setIsMoleculeOpen(false)}
-        onSelect={handleAddMolecule}
+      <MoleculePicker 
+        isOpen={isMoleculeOpen} 
+        onClose={() => setIsMoleculeOpen(false)} 
+        onSelect={handleAddMolecule} 
         gameMode={gameMode}
         discoveredMolecules={discovered.molecules}
       />
-
-      <StandardModelPicker
-        isOpen={isStandardModelOpen}
-        onClose={() => setIsStandardModelOpen(false)}
+      <StandardModelPicker 
+        isOpen={isStandardModelOpen} 
+        onClose={() => setIsStandardModelOpen(false)} 
         onSelect={handleAddParticle}
         gameMode={gameMode}
         discoveredParticles={discovered.particles}
       />
-
       <HelpModal 
-        isOpen={isHelpOpen}
-        onClose={() => setIsHelpOpen(false)}
+        isOpen={isHelpOpen} 
+        onClose={() => setIsHelpOpen(false)} 
         discovery={discovered}
         gameMode={gameMode}
         unseenSections={unseenHelpSections}

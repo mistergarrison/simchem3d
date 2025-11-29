@@ -135,7 +135,8 @@ export class ForceDirectedLayout {
         }
 
         // 2. Springs (Bonding)
-        this.bonds.forEach(([idxA, idxB]) => {
+        // Extract Bond Order from tuple [idxA, idxB, order]
+        this.bonds.forEach(([idxA, idxB, order]) => {
             const nA = this.nodes[idxA];
             const nB = this.nodes[idxB];
             
@@ -145,9 +146,10 @@ export class ForceDirectedLayout {
             const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
             const safeD = Math.max(0.1, d);
 
-            // Calculate Target Length matching the Physics Engine
-            // BondForce uses: (rA + rB) * 0.9 for Single Bond
-            const idealLen = (nA.r + nB.r) * 0.9;
+            // Calculate Target Length matching the Physics Engine's BondForce.ts logic
+            // restScale = 0.9 - ((order - 1) * 0.12);
+            const restScale = 0.9 - ((order - 1) * 0.12);
+            const idealLen = (nA.r + nB.r) * restScale;
 
             const displacement = safeD - idealLen;
             const f = kSpring * displacement;

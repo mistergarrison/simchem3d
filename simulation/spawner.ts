@@ -67,9 +67,10 @@ export class AtomFactory {
         }
 
         // Add Jitter to prevent stacking
-        const jitterX = (Math.random() - 0.5) * 2.0;
-        const jitterY = (Math.random() - 0.5) * 2.0;
-        const jitterZ = (Math.random() - 0.5) * 2.0;
+        // Increased from 2.0 to 10.0 to prevent Coulomb singularities (explosive ejection) when clicking same spot
+        const jitterX = (Math.random() - 0.5) * 10.0;
+        const jitterY = (Math.random() - 0.5) * 10.0;
+        const jitterZ = (Math.random() - 0.5) * 10.0;
 
         let vx = velocity ? velocity.vx : (Math.random() - 0.5) * 0.5;
         let vy = velocity ? velocity.vy : (Math.random() - 0.5) * 0.5;
@@ -86,11 +87,18 @@ export class AtomFactory {
              vz = Math.cos(phi) * MAX_SPEED;
         }
 
+        const finalZ = z + jitterZ;
+        
+        // DEBUG LOGGING for Spawn Position
+        if (Math.abs(finalZ) > 100) {
+            console.warn(`[AtomFactory] Spawning ${elem.s} at extreme Z: ${finalZ.toFixed(1)} (Input Z: ${z.toFixed(1)})`);
+        }
+
         return {
             id: Math.random().toString(36).substr(2, 9),
             x: x + jitterX,
             y: y + jitterY,
-            z: z + jitterZ,
+            z: finalZ,
             vx, vy, vz,
             fx: 0, fy: 0, fz: 0,
             element: elem,

@@ -1,4 +1,3 @@
-
 import { Atom } from '../types';
 import { MouseState } from './types';
 import { COVALENT_Z } from './constants';
@@ -21,6 +20,12 @@ export const AnnealingLogic = {
         if (protectionSet && protectionSet.has(a.id)) return;
 
         let maxValency = COVALENT_Z.has(a.element.z) ? a.element.v : 8; 
+
+        // CRITICAL FIX: Allow hypervalency/coordinate bonds for O and N
+        // This prevents molecules like Ozone (O3) or Nitrate (NO3) from popping apart.
+        // Ozone: O=O-O (Central O has 3 bonds). Standard O valency is 2.
+        if (a.element.z === 8) maxValency = 3; 
+        if (a.element.z === 7) maxValency = 4;
 
         if (a.bonds.length > maxValency) {
             // Score all bonds to find the weakest candidate
@@ -60,23 +65,25 @@ export const AnnealingLogic = {
                         redistributeCharge(atoms, bid);
                     }
                     
-                    // Apply Separation Force (Bug: Implementation mistakenly targets 'a' twice)
+                    // CRITICAL FIX: Separation Force
                     const b = atoms.find(x => x.id === bid);
                     if (b) {
-                        const dx = b.x - a.x;
-                        const dy = b.y - a.y;
-                        const dz = b.z - a.z;
+                        const dx = a.x - b.x; // Vector from B to A
+                        const dy = a.y - b.y;
+                        const dz = a.z - b.z;
                         const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) || 1;
-                        const push = 5.0; 
+                        const push = 10.0; 
                         const totalMass = a.mass + b.mass;
                         
-                        a.vx += (dx/dist) * push * (a.mass / totalMass);
-                        a.vy += (dy/dist) * push * (a.mass / totalMass);
-                        a.vz += (dz/dist) * push * (a.mass / totalMass);
+                        // Push A away
+                        a.vx += (dx/dist) * push * (b.mass / totalMass);
+                        a.vy += (dy/dist) * push * (b.mass / totalMass);
+                        a.vz += (dz/dist) * push * (b.mass / totalMass);
 
-                        a.vx -= (dx/dist) * push * (b.mass / totalMass);
-                        a.vy -= (dy/dist) * push * (b.mass / totalMass);
-                        a.vz -= (dz/dist) * push * (b.mass / totalMass);
+                        // Push B away (FIXED: Previously this was targeting a.vx/vy/vz twice!)
+                        b.vx -= (dx/dist) * push * (a.mass / totalMass);
+                        b.vy -= (dy/dist) * push * (a.mass / totalMass);
+                        b.vz -= (dz/dist) * push * (a.mass / totalMass);
                     }
                 }
             }

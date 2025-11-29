@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { Atom, Particle, PaletteItem, ToolType, DiscoveryState, Molecule, SimulationEvent, MouseState } from '../types';
 import { Viewport } from './geometry/Viewport';
 import { SceneRenderer } from './renderer';
 import { InputManager } from './systems/InputManager';
-import { resolveInteractions, annealAtoms, calculateZPlaneForces, integrateMotion } from './chemistry';
+import { resolveInteractions, annealAtoms, calculateZPlaneForces } from './chemistry';
 import { applyVSEPR } from './vsepr';
 import { DecaySystem } from './physics/nuclear/DecaySystem';
 import { QuantumSystem } from './physics/nuclear/QuantumSystem';
@@ -18,6 +19,7 @@ import { setDebug, debugLog } from './utils';
 import { createEnergyDissipation } from './effects';
 import { GraphAnalyzer } from './topology/GraphAnalyzer';
 import { identifyMoleculeData } from './molecular_utils';
+import { Integrator } from './integrator';
 
 interface EngineConfig {
     timeScale: number;
@@ -302,54 +304,21 @@ export class SimulationEngine {
 
         // Update Physics
         if (this.config.timeScale > 0) {
-            // 1. Update Tools & Inputs
+            // 1. MACRO STEP (Once per frame)
+            // Tools and non-physics updates
             this.updateEnergyTool();
             this.processAutoRotation(); // Handle "Face Camera" animation
             this.input.applyDragForces(); 
 
-            // 2. Topology changes (Rare events)
+            // Topology changes (Rare events)
             annealAtoms(this.atoms, this.mouse, this.mouse.dragGroup);
             HadronSystem.resolveHadronization(this.atoms, this.particles, this.eventLog);
             DecaySystem.process(this.atoms, this.particles, 1/60 * this.config.timeScale, this.eventLog);
 
-            // 3. Standard Physics (Once per frame)
-            const { w, h } = this.viewport.getWorldDimensions();
-
-            // Clear Forces
-            for (let i = 0; i < this.atoms.length; i++) {
-                this.atoms[i].fx = 0;
-                this.atoms[i].fy = 0;
-                this.atoms[i].fz = 0;
-            }
-
-            // Force Calculations
-            resolveInteractions(this.atoms, this.particles, this.mouse, this.mouse.dragGroup, this.eventLog);
-            applyVSEPR(this.atoms, this.mouse.dragGroup);
-            const zForces = calculateZPlaneForces(this.atoms);
-
-            // Lasso Compression Logic
+            // Lasso Compression Logic (Macro)
             if (this.mouse.compression && this.mouse.compression.active) {
                 const c = this.mouse.compression;
-                c.currentRadius = Math.max(c.minRadius, c.currentRadius - 10); // Shrink speed
-                
-                // Pull atoms inward
-                this.atoms.forEach(a => {
-                    if (c.atomIds.has(a.id)) {
-                        const dx = c.cx - a.x;
-                        const dy = c.cy - a.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        if (dist > c.currentRadius) {
-                            // Centripetal force proportional to distance error
-                            const strength = 0.5;
-                            a.vx += (dx/dist) * strength * 5;
-                            a.vy += (dy/dist) * strength * 5;
-                            // Dampen existing velocity to prevent orbiting
-                            a.vx *= 0.8;
-                            a.vy *= 0.8;
-                        }
-                    }
-                });
-
+                c.currentRadius = Math.max(c.minRadius, c.currentRadius - 5); // Slowed down shrink
                 if (c.currentRadius <= c.minRadius) {
                     // Compression complete -> Trigger Assembly
                     c.active = false;
@@ -365,13 +334,65 @@ export class SimulationEngine {
                 }
             }
 
-            // Re-apply drag forces
-            this.input.applyDragForces(); 
+            // 2. MICRO STEP: Physics Sub-stepping
+            const { w, h } = this.viewport.getWorldDimensions();
+            const dt = 1.0 / SUBSTEPS; 
 
-            // Integration (No substepping)
-            // SCALE MOBILE BOTTOM OFFSET TO WORLD UNITS
-            integrateMotion(this.atoms, zForces, w, h, this.config.mobileBottomOffset * WORLD_SCALE, this.particles);
+            for(let step = 0; step < SUBSTEPS; step++) {
+                // Clear Forces
+                for (let i = 0; i < this.atoms.length; i++) {
+                    this.atoms[i].fx = 0;
+                    this.atoms[i].fy = 0;
+                    this.atoms[i].fz = 0;
+                }
+
+                // Apply Inputs per substep for smoothness
+                this.input.applyDragForces(); 
+                
+                // Lasso Force (Micro)
+                if (this.mouse.compression && this.mouse.compression.active) {
+                    const c = this.mouse.compression;
+                    
+                    // Force Constants tuned for substeps
+                    // Removed pullStrength as per user request to rely on shrinking radius
+                    const wallStrength = 20.0 * dt; // Increased wall strength to ensure effective sweeping
+
+                    this.atoms.forEach(a => {
+                        if (c.atomIds.has(a.id)) {
+                            const dx = c.cx - a.x;
+                            const dy = c.cy - a.y;
+                            const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+                            // Only apply force if outside the shrinking radius (Wall effect)
+                            if (dist > c.currentRadius) {
+                                a.vx += (dx/dist) * wallStrength;
+                                a.vy += (dy/dist) * wallStrength;
+                                // Damping to prevent wall-bouncing
+                                a.vx *= 0.8;
+                                a.vy *= 0.8;
+                            }
+                        }
+                    });
+                }
+
+                // Force Calculations
+                resolveInteractions(this.atoms, this.particles, this.mouse, this.mouse.dragGroup, this.eventLog);
+                applyVSEPR(this.atoms, this.mouse.dragGroup);
+                const zForces = calculateZPlaneForces(this.atoms);
+
+                // ZERO OUT Z-FORCES for Dragged Atoms
+                // This prevents the "squashing" effect where the z-plane restoration force
+                // flattens a 3D molecule while it's being dragged via kinematic control.
+                if (this.mouse.dragGroup.size > 0) {
+                    this.mouse.dragGroup.forEach(id => zForces.set(id, 0));
+                }
+
+                // Integration with dt
+                // SCALE MOBILE BOTTOM OFFSET TO WORLD UNITS
+                Integrator.integrateAll(this.atoms, zForces, w, h, this.config.mobileBottomOffset * WORLD_SCALE, this.particles, dt);
+            }
             
+            // 3. POST-STEP (Visuals / Cleanup)
             // Particles update (Visuals only, run once per frame)
             for(let i = this.particles.length - 1; i >= 0; i--) {
                 const p = this.particles[i];

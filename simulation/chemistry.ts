@@ -1,10 +1,9 @@
-
-
 import { Atom, Particle, SimulationEvent } from '../types';
 import { MouseState } from './types';
 import { AnnealingLogic } from './annealing';
 import { Integrator } from './integrator';
 import { pruneGhostBonds } from './utils';
+import { Z_SPRING } from './constants';
 
 // Logic Modules
 import { BondForce } from './physics/BondForce';
@@ -191,8 +190,7 @@ export const calculateZPlaneForces = (atoms: Atom[]): Map<string, number> => {
         
         const count = componentIds.length;
         const avgZ = count > 0 ? sumZ / count : 0;
-        // Z_SPRING = 0.001
-        const force = -avgZ * 0.001; 
+        const force = -avgZ * Z_SPRING; 
         
         for(const id of componentIds) {
             zForceMap.set(id, force);
@@ -207,7 +205,8 @@ export const integrateMotion = (
     worldW: number, 
     worldH: number, 
     safeAreaBottom: number,
-    particles: Particle[]
+    particles: Particle[],
+    dt: number = 1.0
 ) => {
-    Integrator.integrateAll(atoms, zForceMap, worldW, worldH, safeAreaBottom, particles);
+    Integrator.integrateAll(atoms, zForceMap, worldW, worldH, safeAreaBottom, particles, dt);
 };

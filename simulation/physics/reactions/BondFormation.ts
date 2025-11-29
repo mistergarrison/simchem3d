@@ -2,7 +2,7 @@
 import { Atom, Particle } from '../../../types';
 import { MouseState } from '../../types';
 import { COVALENT_Z } from '../../constants';
-import { addBond, redistributeCharge } from '../../utils';
+import { addBond, redistributeCharge, getMoleculeGroup } from '../../utils';
 import { trySpawnLabel } from '../../molecular_utils';
 import { createExplosion } from '../../effects';
 import { canFormBond } from '../validators/BondingRules';
@@ -15,6 +15,10 @@ export const attemptBondFormation = (
     normal: {x: number, y: number, z: number},
     mouse: MouseState
 ): void => {
+    // Immunity check: Atoms in cooldown (ejected/assembling) should not bond with others
+    // This prevents ejected molecules from snagging on neighbors or collapsing.
+    if ((a.cooldown || 0) > 0 || (b.cooldown || 0) > 0) return;
+
     if (!canFormBond(atoms, a, b)) return;
 
     const dvx = a.vx - b.vx;
@@ -26,8 +30,23 @@ export const attemptBondFormation = (
     const bVal = COVALENT_Z.has(b.element.z) ? b.element.v : 8;
     const hasSpace = a.bonds.length < aVal && b.bonds.length < bVal;
     
+    // Gentle formation (Velocity < 10)
     const isGentle = vRelSq < 100;
-    const isForced = vRelSq > 400;
+    
+    // Forced formation (High energy collision)
+    // Threshold increased to 2500 (Speed 50) to prevent accidental triggers from wobble
+    let isForced = vRelSq > 2500; 
+
+    // CRITICAL FIX: Prevent "Internal Short Circuits"
+    // If atoms are already part of the same molecule, we DISABLE forced bonding.
+    // This prevents internal vibrations/wobbles from triggering a "high energy collision" logic
+    // which would create hypervalent bonds (e.g. C=5) and cause the Annealer to destroy the molecule.
+    if (isForced) {
+        const groupA = getMoleculeGroup(atoms, a.id);
+        if (groupA.has(b.id)) {
+            isForced = false;
+        }
+    }
 
     if ((hasSpace && isGentle) || isForced) {
         addBond(a, b);

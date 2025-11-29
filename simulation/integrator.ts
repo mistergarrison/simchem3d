@@ -1,5 +1,4 @@
 
-
 import { Atom, Particle } from '../types';
 import { DRAG_COEFF, MAX_SPEED, Z_BOUNDS } from './constants';
 import { getMoleculeGroup, debugWarn } from './utils';
@@ -13,6 +12,7 @@ export class Integrator {
     /**
      * Integrates motion for a single atom, applying all constraints and damping.
      * Returns TRUE if the atom should be removed from the simulation (e.g. out of bounds Boson).
+     * @param dt Delta Time scalar (1.0 = full frame, 0.125 = 1/8th frame)
      */
     static updateAtom(
         a: Atom, 
@@ -21,14 +21,16 @@ export class Integrator {
         worldH: number, 
         safeAreaBottom: number,
         allAtoms: Atom[],
-        particles: Particle[]
+        particles: Particle[],
+        dt: number
     ): boolean {
         // --- BOSON FLIGHT (Photons/Gluons) ---
         // They fly straight, ignore forces/damping, and disappear when out of bounds.
+        // Scaling flight by dt ensures constant speed regardless of substepping
         if (a.element.s === 'γ' || a.element.s === 'g') {
-            a.x += a.vx;
-            a.y += a.vy;
-            a.z += a.vz;
+            a.x += a.vx * dt;
+            a.y += a.vy * dt;
+            a.z += a.vz * dt;
             
             const margin = 200; // Increased margin to ensure they are well off-screen before deletion
             if (a.x < -margin || a.x > worldW + margin || 
@@ -47,7 +49,8 @@ export class Integrator {
                 debugWarn(`[Assembly] Atom ${a.element.s} (${a.id.slice(0,4)}) starting assembly phase.`);
             }
 
-            Integrator.handleAssembly(a, allAtoms, particles);
+            // Scale assembly timer by dt to match real time (1.0 per frame)
+            Integrator.handleAssembly(a, allAtoms, particles, dt);
 
             // If still assembling (Held), pin velocity
             if (a.isAssembling) {
@@ -64,7 +67,8 @@ export class Integrator {
         }
 
         // --- ACCELERATION CLAMPING (Anti-Explosion) ---
-        const MAX_ACCEL = 200.0;
+        // Increased max accel to allow stiff spring corrections (5000 -> 100000)
+        const MAX_ACCEL = 100000.0; 
         
         let ax = a.fx / mass;
         let ay = a.fy / mass;
@@ -74,26 +78,32 @@ export class Integrator {
         if (Math.abs(ay) > MAX_ACCEL) ay = Math.sign(ay) * MAX_ACCEL;
         if (Math.abs(az) > MAX_ACCEL) az = Math.sign(az) * MAX_ACCEL;
 
-        // Apply Acceleration
-        a.vx += ax; 
-        a.vy += ay; 
-        a.vz += az;
+        // Apply Acceleration scaled by dt
+        a.vx += ax * dt; 
+        a.vy += ay * dt; 
+        a.vz += az * dt;
         
         if (isNaN(a.vx) || isNaN(a.vy) || isNaN(a.vz)) {
             a.vx = 0; a.vy = 0; a.vz = 0;
         }
 
-        // Apply Damping / Cooldown
-        Integrator.applyDamping(a);
+        // Apply Damping / Cooldown scaled by dt
+        Integrator.applyDamping(a, dt);
         
         // --- WEAKENED Z-PLANE RESTORATION ---
-        a.vz += zForce;
-        a.vz *= 0.95; 
+        // STABILITY FIX: For very light particles (electrons/quarks, m < 0.01), the standard Z-spring 
+        // creates a harmonic oscillator with frequency > 1/dt, causing immediate explosion to infinity.
+        // We clamp the effective mass used for Z-restoration to 1.0 to ensure overdamped stability.
+        // This makes light particles drift back to Z=0 kinematically rather than oscillating violently.
+        const zMass = Math.max(mass, 1.0);
+        a.vz += (zForce / zMass) * dt;
+        
+        a.vz *= Math.pow(0.95, dt); 
 
-        // Update Position
-        a.x += a.vx; 
-        a.y += a.vy; 
-        a.z += a.vz;
+        // Update Position scaled by dt
+        a.x += a.vx * dt; 
+        a.y += a.vy * dt; 
+        a.z += a.vz * dt;
         
         if (isNaN(a.x) || isNaN(a.y) || isNaN(a.z)) {
              a.x = worldW / 2;
@@ -106,8 +116,8 @@ export class Integrator {
         return false;
     }
 
-    private static handleAssembly(a: Atom, allAtoms: Atom[], particles: Particle[]) {
-        a.assemblyTimer = (a.assemblyTimer || 0) + 1;
+    private static handleAssembly(a: Atom, allAtoms: Atom[], particles: Particle[], dt: number) {
+        a.assemblyTimer = (a.assemblyTimer || 0) + (1.0 * dt);
         const MIN_HOLD_TICKS = 6; // 0.1s Hold @ 60fps
 
         // 1. Hold Phase
@@ -126,7 +136,7 @@ export class Integrator {
             }
         }
         
-        if (group.length > 0) {
+        if (group.length > 0 && a.id === group[0].id) {
             cx /= group.length; cy /= group.length; cz /= group.length;
             // Big Flash
             createExplosion(particles, cx, cy, cz, '#FFFFFF', 40);
@@ -152,17 +162,19 @@ export class Integrator {
         }
     }
 
-    private static applyDamping(a: Atom) {
+    private static applyDamping(a: Atom, dt: number) {
         if ((a.cooldown || 0) > 0) {
-            // Hot atom damping
-            const drag = 0.85; 
+            // Hot atom damping (Ejection Phase)
+            // No drag (1.0) ensures momentum is perfectly preserved during the initial flight
+            const drag = 1.0; 
             a.vx *= drag; a.vy *= drag; a.vz *= drag;
             
             // Cooldown decay
-            a.cooldown = Math.max(0, (a.cooldown || 0) - 0.02);
+            a.cooldown = Math.max(0, (a.cooldown || 0) - (0.02 * dt));
         } else {
             // Standard Air Resistance
-            a.vx *= DRAG_COEFF; a.vy *= DRAG_COEFF; 
+            const drag = Math.pow(DRAG_COEFF, dt);
+            a.vx *= drag; a.vy *= drag; 
             
             const speedSq = a.vx*a.vx + a.vy*a.vy + a.vz*a.vz;
             if (speedSq > MAX_SPEED * MAX_SPEED) {
@@ -174,13 +186,13 @@ export class Integrator {
 
     private static applyBounds(a: Atom, worldW: number, worldH: number, safeAreaBottom: number) {
         // World Bounds X/Y
-        if (a.x < a.radius) { a.x = a.radius; a.vx *= -0.8; }
-        if (a.x > worldW - a.radius) { a.x = worldW - a.radius; a.vx *= -0.8; }
-        if (a.y < a.radius) { a.y = a.radius; a.vy *= -0.8; }
+        if (a.x < a.radius) { a.x = a.radius; a.vx *= -0.5; }
+        if (a.x > worldW - a.radius) { a.x = worldW - a.radius; a.vx *= -0.5; }
+        if (a.y < a.radius) { a.y = a.radius; a.vy *= -0.5; }
         
         // Bottom Boundary with Safe Area
         const bottomLimit = worldH - safeAreaBottom - a.radius;
-        if (a.y > bottomLimit) { a.y = bottomLimit; a.vy *= -0.8; }
+        if (a.y > bottomLimit) { a.y = bottomLimit; a.vy *= -0.5; }
 
         // --- HARD Z-CLAMPING ---
         if (a.z > Z_BOUNDS) { a.z = Z_BOUNDS; a.vz = 0; }
@@ -196,7 +208,8 @@ export class Integrator {
         worldW: number, 
         worldH: number, 
         safeAreaBottom: number,
-        particles: Particle[]
+        particles: Particle[],
+        dt: number
     ) {
         // Iterate backwards to allow safe removal of atoms
         for (let i = atoms.length - 1; i >= 0; i--) {
@@ -204,7 +217,7 @@ export class Integrator {
             const zForce = zForceMap.get(a.id) || 0;
             
             // Pass the full atom list to allow group operations (like group release)
-            const shouldRemove = Integrator.updateAtom(a, zForce, worldW, worldH, safeAreaBottom, atoms, particles);
+            const shouldRemove = Integrator.updateAtom(a, zForce, worldW, worldH, safeAreaBottom, atoms, particles, dt);
             
             if (shouldRemove) {
                 atoms.splice(i, 1);

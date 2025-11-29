@@ -10,9 +10,14 @@ import { killRelatedLabels } from '../molecular_utils';
  * Models bonds as a damped spring system.
  */
 export class BondForce {
-    // Original Thresholds
-    private static readonly BREAK_THRESHOLD = 5.0; 
-    private static readonly MAX_FORCE = 50.0; 
+    // Increased Thresholds to prevent accidental snapping during collisions
+    // 20.0 = Bonds essentially never break from impact, only extreme manual stretching
+    private static readonly BREAK_THRESHOLD = 20.0; 
+    
+    // CRITICAL FIX: Increased MAX_FORCE massively (5000 -> 100000).
+    // This ensures the bond can exert enough force to keep atoms together 
+    // even when smashed by a fast-moving object.
+    private static readonly MAX_FORCE = 100000.0; 
 
     /**
      * Applies spring and damping forces to bonded atoms.
@@ -44,9 +49,9 @@ export class BondForce {
         // 2. Spring Force (Hooke's Law: F = -kx)
         let displacement = dist - idealDist;
         
-        // Clamp displacement to prevent infinite force at extreme distances
-        if (displacement > 100) displacement = 100;
-        if (displacement < -100) displacement = -100;
+        // Relaxed displacement clamp (1000 -> 2000) to allow full strength of the stiffer spring
+        if (displacement > 2000) displacement = 2000;
+        if (displacement < -2000) displacement = -2000;
 
         const springForce = BOND_STIFFNESS * displacement;
         

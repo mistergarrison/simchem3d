@@ -1,7 +1,4 @@
 
-
-
-
 export interface Isotope {
     m: number;
     hl: number | "stable";
@@ -148,6 +145,12 @@ export interface SimulationEvent {
     label: string;
     reason: string;
     timestamp: number;
+}
+
+export interface LeaderboardEntry {
+    name: string;
+    score: number;
+    date: string;
 }
 
 /**

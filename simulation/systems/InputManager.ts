@@ -101,11 +101,6 @@ export class InputManager {
             
             if (this.lastTwoFingerY !== null) {
                 const dy = avgY - this.lastTwoFingerY;
-                // Sensitivity: 0.02
-                // Direction: Dragging UP (negative dy) should rotate top-face AWAY (negative angle) or TOWARDS?
-                // Standard Touch "Stick to Finger": If I touch top and pull down, top comes to me (Positive RotX).
-                // Drag Down (dy > 0) -> dTheta > 0.
-                // Previous logic was -dy which inverted it. Removing minus sign makes it "Natural".
                 const dTheta = dy * 0.02; 
                 this.rotateHoveredGroups(dTheta);
             }
@@ -160,7 +155,6 @@ export class InputManager {
         }
 
         // If we are still touching with one finger, don't trigger release logic yet
-        // (unless we want to support switching from multi to single touch seamlessly, which is complex)
         if (this.activePointers.size > 0) return;
 
         const mouse = this.engine.mouse;
@@ -242,61 +236,48 @@ export class InputManager {
         if (!leader) return;
 
         const worldMouse = this.viewport.unproject(mouse.x, mouse.y, this.dragZ);
-        const targetX = worldMouse.x + mouse.dragAnchor.x;
-        const targetY = worldMouse.y + mouse.dragAnchor.y;
         
-        const dx = targetX - leader.x;
-        const dy = targetY - leader.y;
-        const dz = this.dragZ - leader.z;
+        // Calculate where the LEADER should be
+        const leaderTargetX = worldMouse.x + mouse.dragAnchor.x;
+        const leaderTargetY = worldMouse.y + mouse.dragAnchor.y;
+        const leaderTargetZ = this.dragZ;
         
-        // KINEMATIC DRAG:
-        // Directly set velocity to move towards cursor.
-        // This overrides inertia and prevents "orbiting".
-        // Factor 0.3 means "close 30% of the distance this frame".
         const SNAP_FACTOR = 0.3; 
         
-        leader.vx = dx * SNAP_FACTOR;
-        leader.vy = dy * SNAP_FACTOR;
-        leader.vz = dz * SNAP_FACTOR;
+        // Apply individual velocity to each member to maintain Rigid Body structure
+        mouse.dragGroup.forEach(id => {
+            const atom = this.engine.atoms.find(a => a.id === id);
+            if (atom) {
+                // Determine target position for THIS atom
+                let targetX = leaderTargetX;
+                let targetY = leaderTargetY;
+                let targetZ = leaderTargetZ;
 
-        // Clear other forces on the leader (Gravity/Bonds) to give the mouse "God Mode" authority.
-        // Bonds will still pull followers, but the leader won't be pulled back.
-        leader.fx = 0;
-        leader.fy = 0;
-        leader.fz = 0;
-
-        // Rigid Body coupling for the rest of the molecule
-        if (mouse.dragGroup.size > 1) {
-            mouse.dragGroup.forEach(id => {
-                if (id === leader.id) return;
-                const follower = this.engine.atoms.find(a => a.id === id);
-                if (follower) {
+                // Apply saved offset relative to leader
+                if (id !== leader.id) {
                     const offset = mouse.dragOffsets.get(id);
                     if (offset) {
-                        const idealX = leader.x + offset.x;
-                        const idealY = leader.y + offset.y;
-                        const idealZ = leader.z + offset.z;
-                        
-                        const fdx = idealX - follower.x;
-                        const fdy = idealY - follower.y;
-                        const fdz = idealZ - follower.z;
-                        
-                        const fMass = follower.mass || 1;
-                        // Stiff spring to keep shape
-                        const kFollow = 0.5; 
-                        
-                        follower.fx += fdx * kFollow * fMass; 
-                        follower.fy += fdy * kFollow * fMass;
-                        follower.fz += fdz * kFollow * fMass;
-                        
-                        // High damping for followers
-                        follower.vx *= 0.8; 
-                        follower.vy *= 0.8; 
-                        follower.vz *= 0.8;
+                        targetX += offset.x;
+                        targetY += offset.y;
+                        targetZ += offset.z;
                     }
                 }
-            });
-        }
+
+                // P-Controller: Velocity proportional to distance from target
+                const dx = targetX - atom.x;
+                const dy = targetY - atom.y;
+                const dz = targetZ - atom.z;
+
+                atom.vx = dx * SNAP_FACTOR;
+                atom.vy = dy * SNAP_FACTOR;
+                atom.vz = dz * SNAP_FACTOR;
+
+                // Zero out accumulated forces to give Kinematic control absolute authority
+                atom.fx = 0;
+                atom.fy = 0;
+                atom.fz = 0;
+            }
+        });
     }
 
     /**
@@ -306,13 +287,19 @@ export class InputManager {
         const mouse = this.engine.mouse;
         if (!mouse.dragId || this.recentVelocities.length === 0) return;
 
+        // Check for staleness
+        // If user stopped moving before release, do not fling
+        const timeSinceLastMove = Date.now() - this.lastTime;
+        // Relaxed threshold to 100ms to allow for slight pauses/browser lag
+        if (timeSinceLastMove > 100) return;
+
         // 1. Calculate Average Velocity (pixels / ms)
         let avgX = 0, avgY = 0;
         this.recentVelocities.forEach(v => { avgX += v.vx; avgY += v.vy; });
         avgX /= this.recentVelocities.length;
         avgY /= this.recentVelocities.length;
 
-        // 2. Convert to Physics Units (WorldUnits / Substep)
+        // 2. Convert to Physics Units (WorldUnits / Frame)
         // Approx 16.6ms per frame @ 60fps
         const pxPerFrameX = avgX * 16.6;
         const pxPerFrameY = avgY * 16.6;
@@ -321,11 +308,9 @@ export class InputManager {
         const worldPerFrameY = pxPerFrameY * WORLD_SCALE;
 
         // 3. Apply Boost Factor
-        // Simulation drag (even reduced) feels sluggish compared to hand motion.
-        // A 1.5x boost aligns the visual speed with user intent.
         const BOOST = 1.5; 
-        const atomVx = (worldPerFrameX / SUBSTEPS) * BOOST;
-        const atomVy = (worldPerFrameY / SUBSTEPS) * BOOST;
+        const atomVx = worldPerFrameX * BOOST;
+        const atomVy = worldPerFrameY * BOOST;
 
         const speed = Math.sqrt(atomVx*atomVx + atomVy*atomVy);
 
@@ -354,7 +339,10 @@ export class InputManager {
 
     private performHitTest(screenX: number, screenY: number): string | null {
         let hitId: string | null = null;
-        let minDepth = Infinity;
+        
+        // FIXED: Use maxScale to find the CLOSEST atom (foreground)
+        // Previous logic used minDepth, which might select atoms further away if Z-axis orientation is +Towards.
+        let maxScale = -Infinity;
 
         // Iterate atoms to find closest intersection
         this.engine.atoms.forEach(a => {
@@ -364,8 +352,8 @@ export class InputManager {
                 const dy = screenY - p.y;
                 // Hitbox slightly larger than visual radius
                 if (dx*dx + dy*dy < (p.r * 1.2)**2) {
-                    if (p.depth < minDepth) {
-                        minDepth = p.depth;
+                    if (p.scale > maxScale) {
+                        maxScale = p.scale;
                         hitId = a.id;
                     }
                 }
@@ -394,7 +382,7 @@ export class InputManager {
             y: atom.y - worldMouse.y
         };
         
-        // Store rigid body offsets for the whole molecule
+        // Store rigid body offsets for the whole molecule relative to the leader
         mouse.dragOffsets.clear();
         mouse.dragGroup.forEach(id => {
             const m = this.engine.atoms.find(a => a.id === id);
@@ -453,32 +441,35 @@ export class InputManager {
         const dist = Math.sqrt(dx*dx + dy*dy);
         
         const config = this.engine.getConfig();
+        
+        // FIXED: Always calculate spawn origin from start.x/start.y to prevent placement drift.
+        // Even for clicks (dist < 10), we want the atom to appear where the user originally aimed (start),
+        // not where they lifted their finger (up/client).
         const worldPos = this.viewport.unproject(start.x, start.y, 0);
         
         // Drag: Spawn with velocity (Throw)
         const power = 0.15;
-        const velocity = { vx: dx * power, vy: dy * power, vz: 0 };
+        // If dist is small, treat as a static click (zero velocity)
+        const isDrag = dist >= 10;
+        const velocity = isDrag ? { vx: dx * power, vy: dy * power, vz: 0 } : { vx: 0, vy: 0, vz: 0 };
         const item = config.activeEntity!;
 
-        // CLICK (Static) or DRAG (Velocity)
-        // If CLICK (<10px), we pass the client coordinates to Engine.handleSpawnRequest to resolve World Position there.
-        // If DRAG, we use the `start` World Position calculated here.
-        
-        if (dist < 10) {
-            // Click: Spawn static
-            this.engine.handleSpawnRequest({ item: config.activeEntity!, x: clientX, y: clientY });
-        } else {
-            if (item.type === 'atom' && item.element) {
-                this.engine.spawnAtom(worldPos.x, worldPos.y, 0, item.element, item.isotopeIndex || 0, velocity);
-            } else if (item.type === 'molecule' && item.molecule) {
-                this.engine.spawnMolecule(worldPos.x, worldPos.y, item.molecule, velocity);
-            } else if (item.type === 'particle' && item.particle) {
-                // FIXED: Use spawnAtom to leverage AtomFactory physics (Boson speed etc)
-                // This ensures "throwing" a photon still triggers the MAX_SPEED override in AtomFactory.
-                const elem = getParticleElementData(item.particle.id);
-                this.engine.spawnAtom(worldPos.x, worldPos.y, 0, elem, 0, velocity, item.particle.charge);
-            }
+        // DEBUG: Log Spawn Request
+        if (config.debug) {
+            console.log(`[InputManager] Spawn: ${item.type} at World(${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)})`);
+            console.log(`[InputManager] Velocity: vx=${velocity.vx.toFixed(1)}, vy=${velocity.vy.toFixed(1)}, vz=${velocity.vz.toFixed(1)}`);
         }
+
+        // Unified Spawn Call
+        if (item.type === 'atom' && item.element) {
+            this.engine.spawnAtom(worldPos.x, worldPos.y, 0, item.element, item.isotopeIndex || 0, velocity);
+        } else if (item.type === 'molecule' && item.molecule) {
+            this.engine.spawnMolecule(worldPos.x, worldPos.y, item.molecule, velocity);
+        } else if (item.type === 'particle' && item.particle) {
+            const elem = getParticleElementData(item.particle.id);
+            this.engine.spawnAtom(worldPos.x, worldPos.y, 0, elem, 0, velocity, item.particle.charge);
+        }
+        
         this.dragStart = null;
     }
 
