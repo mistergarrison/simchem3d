@@ -6,8 +6,9 @@ import PeriodicTable from './components/PeriodicTable';
 import MoleculePicker from './components/RecipePicker'; // Note: File name retained, component renamed
 import StandardModelPicker from './components/StandardModelPicker';
 import HelpModal from './components/HelpModal';
-import { ELEMENTS, ELECTRON_ELEM, PROTON_ELEM, NEUTRON_ELEM, getParticleElementData, SM_PARTICLES } from './elements';
+import { ELEMENTS, ELECTRON_ELEM, PROTON_ELEM, NEUTRON_ELEM, SM_PARTICLES } from './elements';
 import { ElementData, PaletteItem, Molecule, ToolType, SM_ParticleDef, GameMode, DiscoveryState } from './types';
+import { MOLECULES } from './molecules';
 import { saveUserConfig, loadUserConfig, clearUserConfig } from './storage';
 
 // Define the default set of items for Sandbox mode
@@ -57,6 +58,10 @@ const App: React.FC = () => {
       molecules: false,
       lasso: false
   });
+
+  // Track unseen help content
+  const [newHelpContent, setNewHelpContent] = useState(false);
+  const [unseenHelpSections, setUnseenHelpSections] = useState<Set<string>>(new Set());
   
   const unlockTimerRef = useRef<{[key: string]: ReturnType<typeof setTimeout>}>({});
 
@@ -76,7 +81,6 @@ const App: React.FC = () => {
   // Triggers for Canvas-side effects
   const [clearTrigger, setClearTrigger] = useState(0);
   const [spawnRequest, setSpawnRequest] = useState<{item: PaletteItem, x?: number, y?: number} | null>(null);
-  const [moleculeRequest, setMoleculeRequest] = useState<{molecule: Molecule, id: number} | null>(null);
   const [testTrigger, setTestTrigger] = useState(0);
 
   // Mobile layout state
@@ -85,8 +89,13 @@ const App: React.FC = () => {
   // Track Atom Count for Conditional UI
   const [atomCount, setAtomCount] = useState(0);
 
+  // Prevent saving if we are in the process of resetting
+  const isResettingRef = useRef(false);
+
   // --- PERSISTENCE ---
   useEffect(() => {
+      if (isResettingRef.current) return;
+      
       saveUserConfig({
           gameMode,
           discovered: {
@@ -104,6 +113,7 @@ const App: React.FC = () => {
 
   const handleClearStorage = useCallback(() => {
       if (window.confirm("Are you sure you want to clear all progress and settings? This will reload the page.")) {
+          isResettingRef.current = true; // Block future saves
           clearUserConfig();
           window.location.reload();
       }
@@ -132,29 +142,60 @@ const App: React.FC = () => {
           let changed = false;
           const next = { ...prev };
           const newUnlocksUpdates: Partial<typeof newlyUnlocked> = {};
+          
+          // Separate sets for Help Logic delta calculation
+          const newUnseenHelp = new Set<string>();
 
+          // Check for Help Unlocks logic
+          // 1. Quantum Vacuum (Particles) - ANY particle
+          const prevQuantum = prev.particles.size > 0;
+          
           if (newFindings.elements) {
-              const wasEmpty = prev.elements.size === 0;
+              const wasEmpty = prev.elements.size <= 1; // H is often free or default
               newFindings.elements.forEach(e => {
                   if (!prev.elements.has(e)) { next.elements = new Set(next.elements).add(e); changed = true; }
               });
-              if (wasEmpty && next.elements.size > 0 && gameMode === 'discovery') newUnlocksUpdates.elements = true;
+              // Help Unlock: Nuclear Physics (Elements > 1)
+              if (wasEmpty && next.elements.size > 1 && gameMode === 'discovery') {
+                  newUnlocksUpdates.elements = true;
+                  newUnseenHelp.add('nuclear');
+              }
           }
+          
           if (newFindings.particles) {
               const wasEmpty = prev.particles.size === 0;
               newFindings.particles.forEach(p => {
                   if (!prev.particles.has(p)) { next.particles = new Set(next.particles).add(p); changed = true; }
               });
-              if (wasEmpty && next.particles.size > 0 && gameMode === 'discovery') newUnlocksUpdates.particles = true;
+              
+              if (wasEmpty && next.particles.size > 0 && gameMode === 'discovery') {
+                  newUnlocksUpdates.particles = true;
+              }
+
+              // Help Unlock: Quantum Vacuum (Any Particle)
+              const nextQuantum = next.particles.size > 0;
+              if (!prevQuantum && nextQuantum) {
+                  newUnseenHelp.add('particles');
+              }
+
+              // Help Unlock: Hadrons (Proton/Neutron)
+              const prevHadrons = prev.particles.has('proton') || prev.particles.has('neutron');
+              const nextHadrons = next.particles.has('proton') || next.particles.has('neutron');
+              if (!prevHadrons && nextHadrons) {
+                  newUnseenHelp.add('hadrons');
+              }
           }
+          
           if (newFindings.molecules) {
               const wasEmpty = prev.molecules.size === 0;
               newFindings.molecules.forEach(m => {
                   if (!prev.molecules.has(m)) { next.molecules = new Set(next.molecules).add(m); changed = true; }
               });
+              // Help Unlock: Chemistry
               if (wasEmpty && next.molecules.size > 0 && gameMode === 'discovery') {
                   newUnlocksUpdates.molecules = true;
                   newUnlocksUpdates.lasso = true; // Lasso unlocks with first molecule
+                  newUnseenHelp.add('chemistry');
               }
           }
 
@@ -171,6 +212,16 @@ const App: React.FC = () => {
               });
           }
 
+          // Apply New Help Content using Functional Update to avoid stale closures
+          if (newUnseenHelp.size > 0) {
+              setUnseenHelpSections(curr => {
+                  const nextSet = new Set(curr);
+                  newUnseenHelp.forEach(s => nextSet.add(s));
+                  return nextSet;
+              });
+              setNewHelpContent(true);
+          }
+
           return changed ? next : prev;
       });
   }, [gameMode]);
@@ -183,6 +234,16 @@ const App: React.FC = () => {
               clearTimeout(unlockTimerRef.current[category]);
           }
       }
+  };
+
+  const markHelpSectionSeen = (id: string) => {
+      setUnseenHelpSections(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          // If we've seen all sections, we can turn off the main notification
+          if (next.size === 0) setNewHelpContent(false);
+          return next;
+      });
   };
 
   // --- MODE TOGGLE HANDLER ---
@@ -283,6 +344,10 @@ const App: React.FC = () => {
   const hasDiscoveredElements = discovered.elements.size > 0;
   const hasDiscoveredParticles = discovered.particles.size > 0;
 
+  // Discovery Progress Calculation
+  const totalDiscoveryItems = useMemo(() => ELEMENTS.length + SM_PARTICLES.length + MOLECULES.length, []);
+  const currentDiscoveryCount = discovered.elements.size + discovered.particles.size + discovered.molecules.size;
+
   return (
     <div className="flex h-[100dvh] w-screen bg-black overflow-hidden font-sans">
       <Sidebar 
@@ -290,7 +355,7 @@ const App: React.FC = () => {
         onOpenTable={() => { setIsTableOpen(true); clearHalo('elements'); }}
         onOpenMolecules={() => { setIsMoleculeOpen(true); clearHalo('molecules'); }}
         onOpenStandardModel={() => { setIsStandardModelOpen(true); clearHalo('particles'); }}
-        onOpenHelp={() => setIsHelpOpen(true)}
+        onOpenHelp={() => { setIsHelpOpen(true); setNewHelpContent(false); }}
         onRemoveFromPalette={handleRemoveFromPalette}
         onUpdateIsotope={handleUpdateIsotope}
         sliderValue={sliderValue}
@@ -315,6 +380,8 @@ const App: React.FC = () => {
         onToggleDebugMode={() => setDebugMode(!debugMode)}
         onClearStorage={handleClearStorage}
         hasObjects={atomCount > 0}
+        discoveryProgress={{ current: currentDiscoveryCount, total: totalDiscoveryItems }}
+        newHelpContent={newHelpContent}
       />
       
       <main className="flex-grow h-full relative bg-neutral-950">
@@ -324,7 +391,6 @@ const App: React.FC = () => {
             onAtomCountChange={handleAtomCountChange}
             clearTrigger={clearTrigger}
             spawnRequest={spawnRequest}
-            moleculeRequest={moleculeRequest} // Kept for legacy tests, but main usage moves to spawnRequest
             showBonds={showBonds}
             viewMode={viewMode}
             activeTool={activeTool}
@@ -366,6 +432,8 @@ const App: React.FC = () => {
         onClose={() => setIsHelpOpen(false)}
         discovery={discovered}
         gameMode={gameMode}
+        unseenSections={unseenHelpSections}
+        markSectionSeen={markHelpSectionSeen}
       />
     </div>
   );

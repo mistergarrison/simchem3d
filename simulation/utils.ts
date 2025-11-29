@@ -88,20 +88,6 @@ export const removeAtomFromWorld = (
 // --- GEOMETRY ---
 
 /**
- * Rotates a point (x, z) around a center (cx, cz) by angle theta.
- */
-export const rotatePoint = (x: number, z: number, cx: number, cz: number, theta: number) => {
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
-    const dx = x - cx;
-    const dz = z - cz;
-    return {
-        x: cx + (dx * cos - dz * sin),
-        z: cz + (dx * sin + dz * cos)
-    };
-};
-
-/**
  * Calculates the optimal rotation to align a molecule's "Flattest Face" to the camera.
  */
 export const calculateOptimalRotation = (atoms: Atom[], groupIds: Set<string>) => {

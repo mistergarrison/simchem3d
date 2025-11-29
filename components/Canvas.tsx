@@ -10,7 +10,6 @@ interface CanvasProps {
   onAtomCountChange: (count: number) => void;
   clearTrigger: number;
   spawnRequest: { item: PaletteItem, x?: number, y?: number } | null;
-  moleculeRequest: { molecule: Molecule; id: number } | null;
   showBonds: boolean;
   viewMode: 'solid' | 'glass';
   activeTool: ToolType;
@@ -44,6 +43,17 @@ const Canvas: React.FC<CanvasProps> = ({
   const [testToast, setTestToast] = useState<{msg: string, type: 'success' | 'error' | 'info'} | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- STABLE CALLBACKS FOR ENGINE ---
+  // Using refs ensures the Engine always calls the LATEST version of the callback
+  // without needing to be re-instantiated or updated constantly.
+  const onDiscoveryRef = useRef(onDiscovery);
+  const onUnlockParticleRef = useRef(onUnlockParticle);
+  const onAtomCountChangeRef = useRef(onAtomCountChange);
+
+  useEffect(() => { onDiscoveryRef.current = onDiscovery; }, [onDiscovery]);
+  useEffect(() => { onUnlockParticleRef.current = onUnlockParticle; }, [onUnlockParticle]);
+  useEffect(() => { onAtomCountChangeRef.current = onAtomCountChange; }, [onAtomCountChange]);
+
   // Initialize Engine
   useEffect(() => {
       if (canvasRef.current && !engineRef.current) {
@@ -59,9 +69,10 @@ const Canvas: React.FC<CanvasProps> = ({
                   debug
               },
               {
-                  onAtomCountChange,
-                  onDiscovery,
-                  onUnlockParticle
+                  // Pass wrappers that delegate to the current ref
+                  onAtomCountChange: (c) => onAtomCountChangeRef.current(c),
+                  onDiscovery: (d) => onDiscoveryRef.current(d),
+                  onUnlockParticle: (id) => onUnlockParticleRef.current(id)
               }
           );
           engineRef.current.start();

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Atom, Particle, PaletteItem, ToolType, DiscoveryState, Molecule, SimulationEvent, MouseState } from '../types';
 import { Viewport } from './geometry/Viewport';
@@ -8,7 +7,7 @@ import { resolveInteractions, annealAtoms, calculateZPlaneForces, integrateMotio
 import { applyVSEPR } from './vsepr';
 import { DecaySystem } from './physics/nuclear/DecaySystem';
 import { QuantumSystem } from './physics/nuclear/QuantumSystem';
-import { resolveHadronization } from './nuclear';
+import { HadronSystem } from './physics/nuclear/HadronSystem';
 import { spawnAtomInWorld, AtomFactory } from './spawner';
 import { PROTON_ELEM, NEUTRON_ELEM, getParticleElementData, SM_PARTICLES } from '../elements';
 import { ElementData } from '../types';
@@ -310,7 +309,7 @@ export class SimulationEngine {
 
             // 2. Topology changes (Rare events)
             annealAtoms(this.atoms, this.mouse, this.mouse.dragGroup);
-            resolveHadronization(this.atoms, this.particles, this.eventLog);
+            HadronSystem.resolveHadronization(this.atoms, this.particles, this.eventLog);
             DecaySystem.process(this.atoms, this.particles, 1/60 * this.config.timeScale, this.eventLog);
 
             // 3. Standard Physics (Once per frame)

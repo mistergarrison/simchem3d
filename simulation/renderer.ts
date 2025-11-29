@@ -1,5 +1,10 @@
 
 
+
+
+
+
+
 import { Atom, Particle } from '../types';
 import { MouseState } from './types';
 import { Viewport, ProjectedPoint } from './geometry/Viewport';
@@ -191,17 +196,17 @@ export class SceneRenderer {
         const val = mouse.energyValue;
         const target = mouse.energyTarget;
 
-        const scale = isMobile ? 3 : 1;
-        const rMain = 30 * scale;
-        const rTarget = 40 * scale;
-        const yTextOffset = 40 * scale;
-        const yReleaseOffset = 50 * scale;
-        const lineWidth = 4 * scale;
-        const fontPx = 24 * scale;
+        // Gauge Sizing: Desktop is significantly smaller than mobile
+        const radius = isMobile ? 50 : 16;
+        const lineWidth = isMobile ? 8 : 4;
+        const fontSize = isMobile ? 24 : 12;
+        const labelOffset = isMobile ? 90 : 35;
+        const targetRadius = isMobile ? 70 : 24;
 
-        ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 20 * scale;
+        ctx.shadowColor = '#FFD700'; 
+        ctx.shadowBlur = isMobile ? 20 : 10;
         ctx.fillStyle = '#FFD700';
-        ctx.font = `bold ${fontPx}px Inter, sans-serif`;
+        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = "center";
         
         // Dynamic Unit Formatting
@@ -211,42 +216,53 @@ export class SceneRenderer {
         else if (val < 1000) label = `${val.toFixed(1)} MeV`;
         else label = `${(val / 1000).toFixed(2)} GeV`;
 
-        ctx.fillText(label, mouse.x, mouse.y - yTextOffset);
+        // Render Value Text ABOVE the gauge
+        ctx.fillText(label, mouse.x, mouse.y - labelOffset);
 
+        // --- GAUGE ARC (270 degrees) ---
+        // Gap at the bottom (90 degrees / South)
+        // Start: 135 degrees (South-East) -> 0.75 PI
+        // End: 405 degrees (South-West) -> 2.25 PI
+        const startAngle = 0.75 * Math.PI; 
+        const endAngle = 2.25 * Math.PI;   
+
+        // Draw Background Track
         ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, rMain, 0, Math.PI * 2);
+        ctx.arc(mouse.x, mouse.y, radius, startAngle, endAngle);
         ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
         ctx.stroke();
 
-        ctx.beginPath();
-        // Logarithmic Gauge Logic
-        // Start at 1eV (1e-6 MeV) -> Log = -6
-        // Scale up to 400 GeV (4e5 MeV) -> Log = 5.6
+        // Logarithmic Fill
         const minLog = -6; 
         const maxLog = 5.6; 
         const currentLog = Math.log10(Math.max(1e-7, val));
-        const normalized = (currentLog - minLog) / (maxLog - minLog);
-        const angle = Math.max(0, Math.min(1, normalized) * Math.PI * 2); 
+        const normalized = Math.max(0, Math.min(1, (currentLog - minLog) / (maxLog - minLog)));
         
-        ctx.arc(mouse.x, mouse.y, rMain, -Math.PI/2, -Math.PI/2 + angle);
+        const totalSpan = endAngle - startAngle;
+        const currentFillEnd = startAngle + (normalized * totalSpan);
+        
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, radius, startAngle, currentFillEnd);
         ctx.lineWidth = lineWidth;
         ctx.strokeStyle = '#FFD700';
         ctx.stroke();
 
+        // Target Indicator
         if (target) {
             const diff = Math.abs(val - target);
-            // Relaxed tolerance for easier hitting (15%)
             if (diff / target < 0.15) {
+                // Lock feedback
                 ctx.beginPath();
-                ctx.arc(mouse.x, mouse.y, rTarget, 0, Math.PI * 2);
+                ctx.arc(mouse.x, mouse.y, targetRadius, startAngle, endAngle);
                 ctx.strokeStyle = '#00FF00';
-                ctx.lineWidth = lineWidth / 2;
+                ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                ctx.fillStyle = '#00FF00';
-                ctx.font = `bold ${fontPx * 0.5}px Inter, sans-serif`;
-                ctx.fillText("RELEASE!", mouse.x, mouse.y + yReleaseOffset);
+                if (isMobile) {
+                    ctx.fillStyle = '#00FF00';
+                    ctx.fillText("RELEASE!", mouse.x, mouse.y - labelOffset - 30);
+                }
             }
         }
         ctx.shadowBlur = 0;

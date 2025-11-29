@@ -25,6 +25,10 @@ export class InputManager {
     private recentVelocities: {vx: number, vy: number}[] = [];
     private lastTime: number = 0;
 
+    // Multi-touch State
+    private activePointers = new Map<number, {x: number, y: number}>();
+    private lastTwoFingerY: number | null = null;
+
     constructor(engine: SimulationEngine, viewport: Viewport) {
         this.engine = engine;
         this.viewport = viewport;
@@ -39,8 +43,24 @@ export class InputManager {
         
         const x = e.clientX - canvasRect.left;
         const y = e.clientY - canvasRect.top;
+        
+        // Track pointer
+        this.activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
         const mouse = this.engine.mouse;
         
+        // If 2 pointers are active, we switch to rotation mode and cancel any single-touch actions
+        if (this.activePointers.size === 2) {
+            mouse.isDown = false;
+            mouse.dragId = null;
+            mouse.dragGroup.clear();
+            this.dragStart = null;
+            mouse.isLassoing = false;
+            mouse.energyActive = false;
+            return;
+        }
+
+        // --- Single Touch Logic ---
         mouse.x = x;
         mouse.y = y;
         mouse.lastX = x;
@@ -72,6 +92,31 @@ export class InputManager {
     }
 
     public handlePointerMove(e: React.PointerEvent, canvasRect: DOMRect) {
+        this.activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+        // --- 2-Finger Rotation Logic ---
+        if (this.activePointers.size === 2) {
+            const points = Array.from(this.activePointers.values());
+            const avgY = (points[0].y + points[1].y) / 2;
+            
+            if (this.lastTwoFingerY !== null) {
+                const dy = avgY - this.lastTwoFingerY;
+                // Sensitivity: 0.02
+                // Direction: Dragging UP (negative dy) should rotate top-face AWAY (negative angle) or TOWARDS?
+                // Standard Touch "Stick to Finger": If I touch top and pull down, top comes to me (Positive RotX).
+                // Drag Down (dy > 0) -> dTheta > 0.
+                // Previous logic was -dy which inverted it. Removing minus sign makes it "Natural".
+                const dTheta = dy * 0.02; 
+                this.rotateHoveredGroups(dTheta);
+            }
+            this.lastTwoFingerY = avgY;
+            return; // Skip single-pointer logic
+        } else {
+            // If we lose a finger, reset tracking to avoid jumps
+            this.lastTwoFingerY = null;
+        }
+
+        // --- Single Pointer Logic ---
         const x = e.clientX - canvasRect.left;
         const y = e.clientY - canvasRect.top;
         const mouse = this.engine.mouse;
@@ -108,6 +153,16 @@ export class InputManager {
 
     public handlePointerUp(e: React.PointerEvent, canvasRect: DOMRect) {
         (e.target as Element).releasePointerCapture(e.pointerId);
+        this.activePointers.delete(e.pointerId);
+        
+        if (this.activePointers.size < 2) {
+            this.lastTwoFingerY = null;
+        }
+
+        // If we are still touching with one finger, don't trigger release logic yet
+        // (unless we want to support switching from multi to single touch seamlessly, which is complex)
+        if (this.activePointers.size > 0) return;
+
         const mouse = this.engine.mouse;
         const config = this.engine.getConfig();
 
@@ -142,6 +197,10 @@ export class InputManager {
 
     public handleWheel(e: React.WheelEvent) {
         const dTheta = e.deltaY * 0.002;
+        this.rotateHoveredGroups(dTheta);
+    }
+
+    private rotateHoveredGroups(dTheta: number) {
         const processed = new Set<string>();
         const atoms = this.engine.atoms;
 

@@ -1,5 +1,7 @@
 
 
+
+
 export interface Isotope {
     m: number;
     hl: number | "stable";
@@ -49,8 +51,6 @@ export interface Isotope {
 
     // DEBUGGING
     _debugId?: number; // Ephemeral runtime ID to track object identity
-    _debugReleasePos?: {x: number, y: number, z: number}; // Position at moment of assembly release
-    _debugReleaseTime?: number; // Timestamp of release
     _debugReleaseLogged?: boolean; // Flag to ensure single log
   }
   
@@ -84,7 +84,6 @@ export interface Isotope {
         atoms: number[]; // List of Z numbers representing the atoms in the molecule
         bonds: [number, number, number][]; // [AtomIndexA, AtomIndexB, BondOrder]
     };
-    isHidden?: boolean;
   }
 
   export interface SM_ParticleDef {

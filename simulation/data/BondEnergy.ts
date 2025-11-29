@@ -59,20 +59,6 @@ export const BOND_ENERGIES: Record<string, number> = {
     "8-8-1": 146,  // O-O
 };
 
-export const VALENCY_CAPS: Record<number, number> = {
-    1: 1, // H
-    6: 4, // C
-    14: 4,// Si
-    7: 3, // N
-    15: 3,// P
-    8: 2, // O
-    16: 2,// S
-    9: 1, // F
-    17: 1,// Cl
-    35: 1,// Br
-    53: 1 // I
-};
-
 /**
  * Retrieves the bond energy for a pair of elements and bond order.
  * Key format is "minZ-maxZ-order".

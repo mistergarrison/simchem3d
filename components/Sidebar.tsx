@@ -34,12 +34,14 @@ interface SidebarProps {
       elements: boolean;
       molecules: boolean;
       lasso: boolean;
-  };
+    };
   onLayoutHeightChange?: (height: number) => void;
   debugMode: boolean;
   onToggleDebugMode: () => void;
   onClearStorage?: () => void;
   hasObjects: boolean;
+  discoveryProgress: { current: number, total: number };
+  newHelpContent: boolean;
 }
 
 interface TapState {
@@ -80,10 +82,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   debugMode,
   onToggleDebugMode,
   onClearStorage,
-  hasObjects
+  hasObjects,
+  discoveryProgress,
+  newHelpContent
 }) => {
   const [editingItem, setEditingItem] = useState<PaletteItem | null>(null);
-  const [dragGhost, setDragGhost] = useState<{ item: PaletteItem, x: number, y: number } | null>(null);
+  const [dragGhost, setDragGhost] = useState<{ item: PaletteItem, x: number, y: number, startY: number } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
@@ -98,7 +102,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       if (newCount >= 5 && !devMode) {
           setDevMode(true);
           // Auto-open options when dev mode unlocks for immediate access to Test/Mode buttons
-          // This serves as the visual confirmation (no toast required)
           setIsOptionsOpen(true);
           setIsMobileOptionsOpen(true);
           
@@ -205,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           }
           
           if (dragGhost) {
-               setDragGhost({ item, x: e.clientX, y: e.clientY });
+               setDragGhost({ ...dragGhost, x: e.clientX, y: e.clientY });
                return;
           }
 
@@ -213,14 +216,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           const absDy = Math.abs(dy);
 
           if (absDy > absDx && absDy > 10) {
-               setDragGhost({ item, x: e.clientX, y: e.clientY });
+               setDragGhost({ item, x: e.clientX, y: e.clientY, startY: tapRef.current.startY });
                (e.target as Element).setPointerCapture(e.pointerId);
-          } else if (e.pointerType === 'mouse' && absDx > absDy) {
-               if (scrollContainerRef.current) {
-                   scrollContainerRef.current.scrollLeft = tapRef.current.initialScrollLeft - dx;
-                   (e.target as Element).setPointerCapture(e.pointerId);
-               }
-          }
+          } 
       }
   };
 
@@ -231,14 +229,22 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
 
       if (dragGhost || (tapRef.current && tapRef.current.hasMoves)) {
-          (e.target as Element).releasePointerCapture(e.pointerId);
+          if ((e.target as Element).hasPointerCapture(e.pointerId)) {
+              (e.target as Element).releasePointerCapture(e.pointerId);
+          }
           
           if (dragGhost) {
-            setDragGhost(null);
-            const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
-            if (elemBelow && elemBelow.tagName === 'CANVAS') {
-                onSpawnItem(item, { x: e.clientX, y: e.clientY });
+            const dy = e.clientY - dragGhost.startY;
+            if (dy > 80) {
+                onRemoveFromPalette(item.id);
+            } 
+            else if (dy < -20) {
+                const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+                if (elemBelow && elemBelow.tagName === 'CANVAS') {
+                    onSpawnItem(item, { x: e.clientX, y: e.clientY });
+                }
             }
+            setDragGhost(null);
           }
           tapRef.current = null;
           return;
@@ -262,31 +268,35 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canOpenAtoms = gameMode === 'sandbox' || hasDiscoveredElements;
   const canOpenMolecules = gameMode === 'sandbox' || hasDiscoveredMolecules;
 
+  const isDeleteDrag = dragGhost && (dragGhost.y - dragGhost.startY > 50);
+
+  const discoveryPercent = Math.min(100, Math.round((discoveryProgress.current / Math.max(1, discoveryProgress.total)) * 100));
+
   return (
     <>
     <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        @keyframes shimmer {
-          0% { box-shadow: 0 0 5px rgba(255, 255, 0, 0.5); border-color: rgba(255, 255, 0, 0.8); }
-          50% { box-shadow: 0 0 15px rgba(255, 255, 0, 0.8); border-color: #ffffff; }
-          100% { box-shadow: 0 0 5px rgba(255, 255, 0, 0.5); border-color: rgba(255, 255, 0, 0.8); }
-        }
-        .shimmer-halo { animation: shimmer 2s infinite; }
     `}</style>
 
     {/* Ghost Element for Drag */}
     {dragGhost && (
         <div 
-            className="fixed pointer-events-none z-[9999] flex items-center justify-center w-20 h-20 rounded-full shadow-2xl bg-gray-900/90 border-2 border-white backdrop-blur-md"
+            className={`fixed pointer-events-none z-[9999] flex items-center justify-center w-20 h-20 rounded-full shadow-2xl backdrop-blur-md border-2 transition-colors
+                ${isDeleteDrag ? 'bg-red-900/90 border-red-500 scale-110' : 'bg-gray-900/90'}
+            `}
             style={{ 
                 left: dragGhost.x, top: dragGhost.y, transform: 'translate(-50%, -50%)',
-                borderColor: dragGhost.item.element?.c || dragGhost.item.particle?.color || '#fff'
+                borderColor: isDeleteDrag ? '#ef4444' : (dragGhost.item.element?.c || dragGhost.item.particle?.color || '#fff')
             }}
         >
-            <span className="text-2xl font-bold text-white">
-                {dragGhost.item.element?.s || dragGhost.item.particle?.symbol || 'M'}
-            </span>
+            {isDeleteDrag ? (
+                <span className="text-3xl">🗑️</span>
+            ) : (
+                <span className="text-2xl font-bold text-white">
+                    {dragGhost.item.element?.s || dragGhost.item.particle?.symbol || 'M'}
+                </span>
+            )}
         </div>
     )}
 
@@ -332,32 +342,38 @@ const Sidebar: React.FC<SidebarProps> = ({
           ref={mobileContainerRef}
           className="lg:hidden absolute bottom-0 left-0 right-0 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 flex flex-col pb-safe pointer-events-auto select-none"
       >
-          {/* Mobile Toolbar - Enhanced Size */}
-          <div className="flex items-center justify-between p-3 border-b border-white/10 gap-3">
-              <div className="flex gap-3">
+          {/* Mobile Toolbar */}
+          <div className="flex items-center justify-between p-3 border-b border-white/10 gap-2">
+              <div className="flex gap-2 shrink-0">
                 <button 
                     onClick={onClear} 
                     disabled={!hasObjects}
-                    className={`p-4 rounded text-3xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
                 >
                     🗑️
                 </button>
-                <button onClick={() => onSelectTool('energy')} className={`p-4 rounded text-3xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
+                <button onClick={() => onSelectTool('energy')} className={`w-12 h-12 flex items-center justify-center rounded text-xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
                 <button 
                     onClick={() => !isLassoLocked && onSelectTool('lasso')} 
                     disabled={isLassoLocked}
-                    className={`p-4 rounded text-3xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30' : activeTool === 'lasso' ? 'bg-white/20 text-white' : 'text-gray-400'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30' : activeTool === 'lasso' ? 'bg-white/20 text-white' : 'text-gray-400'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
                 >
-                    {isLassoLocked ? '🔒' : '𓎤/✋'}
+                    {isLassoLocked ? '🔒' : '𓎤'}
                 </button>
               </div>
-              <div className="h-10 w-px bg-gray-700 mx-1"></div>
-              <div className="flex gap-3">
+              
+              <div className="flex-1 mx-2 flex flex-col justify-center min-w-0" title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}>
+                   <div className="text-[10px] text-gray-500 text-center mb-1 font-bold uppercase truncate">Discoveries {discoveryProgress.current} / {discoveryProgress.total}</div>
+                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full">
+                       <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
+                   </div>
+              </div>
+
+              <div className="flex gap-2 shrink-0">
                 <div className="relative">
-                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="px-5 py-4 bg-blue-600 rounded text-white font-bold flex items-center gap-1 shadow-lg text-xl active:scale-90 transition-transform">
-                        <span>+</span>
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded text-white font-bold shadow-lg text-2xl active:scale-90 transition-transform">
+                        <span className="pb-1">+</span>
                     </button>
-                    {/* Mobile Add Menu */}
                     {isMobileMenuOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
@@ -378,8 +394,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 
                 <div className="relative">
-                    <button onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} className="p-4 rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform">⚙️</button>
-                    {/* Mobile Options Popover */}
+                    <button onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} className="w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl active:scale-90 transition-transform">⚙️</button>
                     {isMobileOptionsOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMobileOptionsOpen(false)} />
@@ -407,17 +422,30 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </>
                     )}
                 </div>
+
+                <button 
+                    onClick={onOpenHelp}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl active:scale-90 transition-transform relative overflow-hidden ${newHelpContent ? 'text-white border border-white/50 shimmer-halo' : ''}`}
+                >
+                    ?
+                </button>
               </div>
           </div>
 
-          {/* Mobile Palette Scroller - Enhanced Size */}
           <div ref={mobileScrollRef} className="flex overflow-x-auto gap-4 p-4 touch-pan-x no-scrollbar">
               {palette.map((item) => {
                   const isActive = activeTool === item.id;
                   let displayChar = '';
                   let color = '#fff';
+                  let fontSizeClass = 'text-2xl';
+
                   if(item.type==='atom') { displayChar = item.element?.s || ''; color = item.element?.c || '#fff'; }
-                  else if(item.type==='molecule') { displayChar = '⚗️'; color='#a855f7'; }
+                  else if(item.type==='molecule') { 
+                      displayChar = item.molecule?.formula || ''; 
+                      color='#a855f7';
+                      const len = displayChar.length;
+                      fontSizeClass = len > 4 ? 'text-xs' : 'text-lg';
+                  }
                   else { displayChar = item.particle?.symbol || 'P'; color = item.particle?.color || '#fff'; }
 
                   return (
@@ -427,12 +455,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onPointerMove={(e) => handlePointerMove(e, item, mobileScrollRef)}
                         onPointerUp={(e) => handlePointerUp(e, item)}
                         onPointerCancel={handlePointerCancel}
-                        className={`flex-shrink-0 w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative transition-all touch-none
+                        className={`flex-shrink-0 w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative transition-all touch-pan-x
                             ${isActive ? 'bg-gray-800 border-white shadow-lg scale-105' : 'bg-gray-900 border-gray-700 opacity-80'}
                         `}
                         style={{ borderColor: isActive ? 'white' : color }}
                     >
-                        <div className="text-2xl font-bold" style={{color}}>{displayChar}</div>
+                        <div className={`${fontSizeClass} font-bold px-1 text-center truncate w-full`} style={{color}}>{displayChar}</div>
                         {isActive && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full"></div>}
                     </div>
                   );
@@ -443,30 +471,41 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       {/* ================= DESKTOP UI ================= */}
       <div className="hidden lg:flex flex-col w-[300px] h-full bg-gray-950 border-r border-gray-800 text-gray-200 shadow-2xl select-none pointer-events-auto">
-          {/* Header with Options Button */}
-          <div className="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center relative">
-            <div onClick={handleLogoClick} className="cursor-pointer select-none hover:opacity-80 transition-opacity">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
-            </div>
-            
-            <div className="flex gap-2 items-center">
-                <button 
-                    onClick={onOpenHelp}
-                    className="w-8 h-8 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white hover:border-gray-500 flex items-center justify-center font-bold transition-all"
-                    title="Help"
-                >
-                    ?
-                </button>
-                <button 
-                    onClick={() => setIsOptionsOpen(!isOptionsOpen)}
-                    className={`w-8 h-8 rounded border flex items-center justify-center transition-colors ${isOptionsOpen ? 'bg-gray-700 border-gray-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                    title="Simulation Options"
-                >
-                    ⚙️
-                </button>
+          {/* Header */}
+          <div className="p-4 border-b border-gray-800 bg-gray-900/50 relative">
+            <div className="flex justify-between items-center mb-4">
+                <div onClick={handleLogoClick} className="cursor-pointer select-none hover:opacity-80 transition-opacity">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
+                </div>
+                
+                <div className="flex gap-2 items-center">
+                    <button 
+                        onClick={onOpenHelp}
+                        className={`w-8 h-8 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white hover:border-gray-500 flex items-center justify-center font-bold transition-all relative overflow-hidden ${newHelpContent ? 'text-white border-white/50 shimmer-halo' : ''}`}
+                        title="Help"
+                    >
+                        ?
+                    </button>
+                    <button 
+                        onClick={() => setIsOptionsOpen(!isOptionsOpen)}
+                        className={`w-8 h-8 rounded border flex items-center justify-center transition-colors ${isOptionsOpen ? 'bg-gray-700 border-gray-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                        title="Simulation Options"
+                    >
+                        ⚙️
+                    </button>
+                </div>
             </div>
 
-            {/* Desktop Pop-out Menu */}
+            <div className="w-full">
+                <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                    <span>Discoveries</span>
+                    <span>{discoveryProgress.current}/{discoveryProgress.total}</span>
+                </div>
+                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                     <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
+                </div>
+            </div>
+
             {isOptionsOpen && (
                 <div className="absolute left-full top-0 ml-2 w-72 z-50 animate-in fade-in slide-in-from-left-2 duration-200">
                     <SimulationOptions
@@ -492,7 +531,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="p-5 border-b border-gray-800 space-y-4 relative">
-            {/* Top Tools: Energy, Lasso, Trash */}
             <div className="grid grid-cols-3 gap-2">
                 <button 
                     onClick={onClear} 
@@ -525,12 +563,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                         ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}
                     `}
                 >
-                    <span className="text-xl">{isLassoLocked ? '🔒' : '𓎤/✋'}</span>
+                    <span className="text-xl">{isLassoLocked ? '🔒' : '𓎤'}</span>
                     <span className="font-bold text-[10px]">Lasso</span>
                 </button>
             </div>
 
-            {/* Unified Add Toolbar */}
             <div>
                 <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Add New</label>
                 <AddEntityButtons 
