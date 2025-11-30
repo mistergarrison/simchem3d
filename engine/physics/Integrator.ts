@@ -19,6 +19,7 @@ export class Integrator {
         zForce: number, 
         worldW: number, 
         worldH: number, 
+        safeAreaTop: number,
         safeAreaBottom: number,
         allAtoms: Atom[],
         particles: Particle[],
@@ -112,7 +113,7 @@ export class Integrator {
              a.vx = 0; a.vy = 0; a.vz = 0;
         }
         
-        Integrator.applyBounds(a, worldW, worldH, safeAreaBottom);
+        Integrator.applyBounds(a, worldW, worldH, safeAreaTop, safeAreaBottom);
         return false;
     }
 
@@ -184,11 +185,16 @@ export class Integrator {
         }
     }
 
-    private static applyBounds(a: Atom, worldW: number, worldH: number, safeAreaBottom: number) {
+    private static applyBounds(a: Atom, worldW: number, worldH: number, safeAreaTop: number, safeAreaBottom: number) {
         // World Bounds X/Y
         if (a.x < a.radius) { a.x = a.radius; a.vx *= -0.5; }
         if (a.x > worldW - a.radius) { a.x = worldW - a.radius; a.vx *= -0.5; }
-        if (a.y < a.radius) { a.y = a.radius; a.vy *= -0.5; }
+        
+        // Top Boundary with Safe Area
+        if (a.y < a.radius + safeAreaTop) { 
+            a.y = a.radius + safeAreaTop; 
+            a.vy *= -0.5; 
+        }
         
         // Bottom Boundary with Safe Area
         const bottomLimit = worldH - safeAreaBottom - a.radius;
@@ -207,6 +213,7 @@ export class Integrator {
         zForceMap: Map<string, number>, 
         worldW: number, 
         worldH: number, 
+        safeAreaTop: number,
         safeAreaBottom: number,
         particles: Particle[],
         dt: number
@@ -217,7 +224,7 @@ export class Integrator {
             const zForce = zForceMap.get(a.id) || 0;
             
             // Pass the full atom list to allow group operations (like group release)
-            const shouldRemove = Integrator.updateAtom(a, zForce, worldW, worldH, safeAreaBottom, atoms, particles, dt);
+            const shouldRemove = Integrator.updateAtom(a, zForce, worldW, worldH, safeAreaTop, safeAreaBottom, atoms, particles, dt);
             
             if (shouldRemove) {
                 atoms.splice(i, 1);

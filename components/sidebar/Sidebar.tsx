@@ -38,6 +38,7 @@ interface SidebarProps {
       lasso: boolean;
     };
   onLayoutHeightChange?: (height: number) => void;
+  onTopLayoutHeightChange?: (height: number) => void;
   debugMode: boolean;
   onToggleDebugMode: () => void;
   onClearStorage?: () => void;
@@ -83,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   hasDiscoveredParticles,
   newlyUnlocked,
   onLayoutHeightChange,
+  onTopLayoutHeightChange,
   debugMode,
   onToggleDebugMode,
   onClearStorage,
@@ -99,6 +101,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
   const [isDiscoveryOverviewOpen, setIsDiscoveryOverviewOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  
+  // Palette Collapse State
+  const [isPaletteCollapsed, setIsPaletteCollapsed] = useState(false);
   
   // Secret Dev Mode Unlock
   const [devMode, setDevMode] = useState(false);
@@ -125,11 +130,24 @@ const Sidebar: React.FC<SidebarProps> = ({
       setIsOptionsOpen(false);
       setIsMobileOptionsOpen(false);
   };
+
+  const toggleFullscreen = () => {
+      if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch((e) => {
+              console.warn("Fullscreen blocked", e);
+          });
+      } else {
+          if (document.exitFullscreen) {
+              document.exitFullscreen();
+          }
+      }
+  };
   
   // Refs for gesture handling
   const paletteScrollRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const mobileContainerRef = useRef<HTMLDivElement>(null);
+  const mobileTopRef = useRef<HTMLDivElement>(null);
   const tapRef = useRef<TapState | null>(null);
   const longPressTimer = useRef<number | null>(null);
 
@@ -143,16 +161,35 @@ const Sidebar: React.FC<SidebarProps> = ({
           }
       };
 
-      // Initial measurement
       updateHeight();
-
-      const observer = new ResizeObserver(() => {
-          updateHeight();
-      });
+      // Also trigger update when palette collapses/expands
+      const observer = new ResizeObserver(() => { updateHeight(); });
       observer.observe(mobileContainerRef.current);
+      
+      // Force check on collapse toggle
+      const timeout = setTimeout(updateHeight, 350); // Wait for transition
 
+      return () => {
+          observer.disconnect();
+          clearTimeout(timeout);
+      };
+  }, [onLayoutHeightChange, palette.length, isPaletteCollapsed]);
+
+  // Monitor Mobile Top Height
+  useEffect(() => {
+      if (!mobileTopRef.current || !onTopLayoutHeightChange) return;
+      
+      const updateHeight = () => {
+          if (mobileTopRef.current && onTopLayoutHeightChange) {
+              onTopLayoutHeightChange(mobileTopRef.current.offsetHeight);
+          }
+      };
+
+      updateHeight();
+      const observer = new ResizeObserver(() => { updateHeight(); });
+      observer.observe(mobileTopRef.current);
       return () => observer.disconnect();
-  }, [onLayoutHeightChange, palette.length]); // Re-measure if palette items change count
+  }, [onTopLayoutHeightChange]);
 
   const getScaleText = (val: number) => {
       if (val === 0) return "Paused";
@@ -356,158 +393,210 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
     )}
 
+    {/* ================= MOBILE MENUS (Fixed Positioning) ================= */}
+    {isMobileMenuOpen && (
+        <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
+            <div className="fixed bottom-24 right-4 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 w-72 z-50 animate-in fade-in slide-in-from-bottom-4">
+                <AddEntityButtons 
+                    onOpenStandardModel={onOpenStandardModel}
+                    onOpenTable={onOpenTable}
+                    onOpenMolecules={onOpenMolecules}
+                    onClose={() => setIsMobileMenuOpen(false)}
+                    canOpenParticles={canOpenParticles}
+                    canOpenAtoms={canOpenAtoms}
+                    canOpenMolecules={canOpenMolecules}
+                    newlyUnlocked={newlyUnlocked}
+                />
+            </div>
+        </>
+    )}
+
+    {isMobileOptionsOpen && (
+        <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsMobileOptionsOpen(false)} />
+            <div className="fixed bottom-24 right-4 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 w-72 animate-in fade-in slide-in-from-bottom-4">
+                <SimulationOptions
+                    sliderValue={sliderValue}
+                    setSliderValue={setSliderValue}
+                    getScaleText={getScaleText}
+                    showBonds={showBonds}
+                    onToggleBonds={onToggleBonds}
+                    viewMode={viewMode}
+                    onToggleViewMode={onToggleViewMode}
+                    gameMode={gameMode}
+                    onToggleGameMode={onToggleGameMode}
+                    onRunTest={handleRunTest}
+                    showDevTools={devMode}
+                    showLogo={true}
+                    onLogoClick={handleLogoClick}
+                    onOpenHelp={onOpenHelp}
+                    debugMode={debugMode}
+                    onToggleDebugMode={onToggleDebugMode}
+                    onClearStorage={onClearStorage}
+                />
+            </div>
+        </>
+    )}
+
     <div className="flex flex-col h-full z-20 absolute inset-0 lg:relative lg:inset-auto lg:w-[300px] pointer-events-none lg:pointer-events-auto">
       
       {/* ================= MOBILE UI ================= */}
-      <div 
-          ref={mobileContainerRef}
-          className="lg:hidden absolute bottom-0 left-0 right-0 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 flex flex-col pb-safe pointer-events-auto select-none"
-      >
-          {/* Mobile Toolbar */}
-          <div className="flex items-center justify-between p-2 border-b border-white/10 gap-1">
-              <div className="flex gap-1 shrink-0">
-                <button 
-                    onClick={onClear} 
-                    disabled={!hasObjects}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-lg active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
-                >
-                    🗑️
-                </button>
-                <button onClick={() => onSelectTool('energy')} className={`w-12 h-12 flex items-center justify-center rounded text-lg active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
-                <button 
-                    onClick={() => !isLassoLocked && onSelectTool('lasso')} 
-                    disabled={isLassoLocked}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-lg relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30' : activeTool === 'lasso' ? 'bg-white/20 text-white' : 'text-gray-400'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
-                >
-                    {isLassoLocked ? '🔒' : '𓎤/✋'}
-                </button>
-              </div>
+      
+      {/* TOP HUD */}
+      <div ref={mobileTopRef} className="lg:hidden absolute top-0 left-0 right-0 p-3 z-30 pointer-events-none flex flex-col gap-2">
+          <div className="flex gap-2 w-full pointer-events-auto items-stretch h-14">
+              <button 
+                  onClick={() => setIsLeaderboardOpen(true)}
+                  className="w-14 h-14 shrink-0 flex items-center justify-center rounded-xl bg-gray-900/80 backdrop-blur-md border border-yellow-600/50 text-2xl shadow-lg active:scale-95 transition-transform"
+              >
+                  🏆
+              </button>
               
-              <div className="flex-1 mx-1 flex gap-1 items-center min-w-0">
-                   {/* Compact Discoveries Bar (2/5ths) */}
+              <div className="flex-1 flex gap-2 min-w-0 h-full">
+                   {/* Discovery Bar */}
                    <div 
                        onClick={() => setIsDiscoveryOverviewOpen(true)}
-                       className="flex-[2] flex flex-col justify-center min-w-0 cursor-pointer active:scale-95 transition-transform" 
-                       title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}
+                       className="flex-1 bg-gray-900/80 backdrop-blur-md border border-gray-700 rounded-xl p-2 flex flex-col justify-center cursor-pointer shadow-lg active:scale-95 transition-transform h-full min-w-0" 
                    >
-                       <div className="text-[9px] text-gray-500 text-center mb-1 font-bold uppercase truncate">Discoveries {discoveryProgress.current}/{discoveryProgress.total}</div>
-                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full">
+                       <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase mb-1">
+                           <span className="truncate mr-1">Discovery</span>
+                           <span className="shrink-0">{discoveryProgress.current}/{discoveryProgress.total}</span>
+                       </div>
+                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full shrink-0">
                            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
                        </div>
                    </div>
-                   
-                   {/* Collider Status - Expands to fill available space (3/5ths) */}
+
+                   {/* Collider Status */}
                    {gameMode !== 'sandbox' && (
-                       <div className="flex-[3] min-w-0">
-                           <ColliderStatus phase={colliderPhase} gameMode={gameMode} className="w-full p-1 h-10 min-h-[40px]" />
+                       <div className="flex-1 pointer-events-auto h-full min-w-0">
+                           <ColliderStatus phase={colliderPhase} gameMode={gameMode} className="w-full p-1 h-full shadow-lg text-[10px] flex flex-col justify-center" />
                        </div>
                    )}
               </div>
+          </div>
+      </div>
 
-              <div className="flex gap-1 shrink-0">
-                <div className="relative">
-                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded text-white font-bold shadow-lg text-xl active:scale-90 transition-transform">
-                        <span className="pb-1">+</span>
-                    </button>
-                    {isMobileMenuOpen && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsMobileMenuOpen(false)} />
-                            <div className="absolute bottom-full right-0 mb-4 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-3 w-72 z-50">
-                                <AddEntityButtons 
-                                    onOpenStandardModel={onOpenStandardModel}
-                                    onOpenTable={onOpenTable}
-                                    onOpenMolecules={onOpenMolecules}
-                                    onClose={() => setIsMobileMenuOpen(false)}
-                                    canOpenParticles={canOpenParticles}
-                                    canOpenAtoms={canOpenAtoms}
-                                    canOpenMolecules={canOpenMolecules}
-                                    newlyUnlocked={newlyUnlocked}
-                                />
+      {/* BOTTOM TOOLBAR */}
+      <div 
+          ref={mobileContainerRef}
+          className="lg:hidden absolute bottom-0 left-0 right-0 flex flex-col pb-safe pointer-events-auto select-none"
+      >
+          {/* Palette Section (Collapsible, Above Toolbar) */}
+          <div className="relative w-full">
+              {/* Collapse Toggle Button */}
+              <button 
+                  onClick={() => setIsPaletteCollapsed(!isPaletteCollapsed)}
+                  className="absolute left-1/2 -translate-x-1/2 -top-6 w-16 h-6 bg-gray-900/95 backdrop-blur border border-gray-700 border-b-0 rounded-t-lg flex items-center justify-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] active:bg-gray-800 z-10"
+              >
+                  <span className={`text-gray-400 text-xs font-bold transition-transform duration-300 ${isPaletteCollapsed ? 'rotate-180' : ''}`}>
+                      ▼
+                  </span>
+              </button>
+
+              {/* Collapsible Content */}
+              <div 
+                  className={`bg-gray-950/95 backdrop-blur-md border-t border-gray-800 transition-all duration-300 ease-in-out overflow-hidden origin-bottom
+                      ${isPaletteCollapsed ? 'max-h-0 opacity-0' : 'max-h-32 opacity-100'}
+                  `}
+              >
+                  <div ref={mobileScrollRef} className="flex overflow-x-auto gap-4 p-4 touch-pan-x no-scrollbar">
+                      {palette.map((item) => {
+                          const isActive = activeTool === item.id;
+                          let displayChar = '';
+                          let color = '#fff';
+                          let fontSizeClass = 'text-2xl';
+
+                          if(item.type==='atom') { displayChar = item.element?.s || ''; color = item.element?.c || '#fff'; }
+                          else if(item.type==='molecule') { 
+                              displayChar = item.molecule?.formula || ''; 
+                              color='#a855f7';
+                              const len = displayChar.length;
+                              fontSizeClass = len > 4 ? 'text-xs' : 'text-lg';
+                          }
+                          else { displayChar = item.particle?.symbol || 'P'; color = item.particle?.color || '#fff'; }
+
+                          return (
+                            <div
+                                key={item.id}
+                                onPointerDown={(e) => handlePointerDown(e, item, mobileScrollRef)}
+                                onPointerMove={(e) => handlePointerMove(e, item, mobileScrollRef)}
+                                onPointerUp={(e) => handlePointerUp(e, item)}
+                                onPointerCancel={handlePointerCancel}
+                                className={`flex-shrink-0 w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative transition-all touch-pan-x
+                                    ${isActive ? 'bg-gray-800 border-white shadow-lg scale-105' : 'bg-gray-900 border-gray-700 opacity-80'}
+                                `}
+                                style={{ borderColor: isActive ? 'white' : color }}
+                            >
+                                <div className={`${fontSizeClass} font-bold px-1 text-center truncate w-full`} style={{color}}>{displayChar}</div>
+                                {isActive && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full"></div>}
                             </div>
-                        </>
-                    )}
-                </div>
-                
-                <div className="relative">
-                    <button onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} className="w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform">⚙️</button>
-                    {isMobileOptionsOpen && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setIsMobileOptionsOpen(false)} />
-                            <div className="absolute bottom-full right-0 mb-4 z-50 w-72">
-                                <SimulationOptions
-                                    sliderValue={sliderValue}
-                                    setSliderValue={setSliderValue}
-                                    getScaleText={getScaleText}
-                                    showBonds={showBonds}
-                                    onToggleBonds={onToggleBonds}
-                                    viewMode={viewMode}
-                                    onToggleViewMode={onToggleViewMode}
-                                    gameMode={gameMode}
-                                    onToggleGameMode={onToggleGameMode}
-                                    onRunTest={handleRunTest}
-                                    showDevTools={devMode}
-                                    showLogo={true}
-                                    onLogoClick={handleLogoClick}
-                                    onOpenHelp={onOpenHelp}
-                                    debugMode={debugMode}
-                                    onToggleDebugMode={onToggleDebugMode}
-                                    onClearStorage={onClearStorage}
-                                />
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                <button 
-                    onClick={() => setIsLeaderboardOpen(true)}
-                    className="w-12 h-12 flex items-center justify-center rounded text-yellow-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform"
-                >
-                    🏆
-                </button>
-
-                <button 
-                    onClick={onOpenHelp}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform relative overflow-hidden ${newHelpContent ? 'text-white border border-white/50 shimmer-halo' : ''}`}
-                >
-                    ?
-                </button>
+                          );
+                      })}
+                      <div className="w-6 flex-shrink-0"></div>
+                  </div>
               </div>
           </div>
 
-          <div ref={mobileScrollRef} className="flex overflow-x-auto gap-4 p-4 touch-pan-x no-scrollbar">
-              {palette.map((item) => {
-                  const isActive = activeTool === item.id;
-                  let displayChar = '';
-                  let color = '#fff';
-                  let fontSizeClass = 'text-2xl';
-
-                  if(item.type==='atom') { displayChar = item.element?.s || ''; color = item.element?.c || '#fff'; }
-                  else if(item.type==='molecule') { 
-                      displayChar = item.molecule?.formula || ''; 
-                      color='#a855f7';
-                      const len = displayChar.length;
-                      fontSizeClass = len > 4 ? 'text-xs' : 'text-lg';
-                  }
-                  else { displayChar = item.particle?.symbol || 'P'; color = item.particle?.color || '#fff'; }
-
-                  return (
-                    <div
-                        key={item.id}
-                        onPointerDown={(e) => handlePointerDown(e, item, mobileScrollRef)}
-                        onPointerMove={(e) => handlePointerMove(e, item, mobileScrollRef)}
-                        onPointerUp={(e) => handlePointerUp(e, item)}
-                        onPointerCancel={handlePointerCancel}
-                        className={`flex-shrink-0 w-20 h-20 rounded-xl border flex flex-col items-center justify-center relative transition-all touch-pan-x
-                            ${isActive ? 'bg-gray-800 border-white shadow-lg scale-105' : 'bg-gray-900 border-gray-700 opacity-80'}
-                        `}
-                        style={{ borderColor: isActive ? 'white' : color }}
+          {/* Mobile Toolbar Buttons */}
+          <div className="bg-gray-950/90 backdrop-blur-md border-t border-gray-800">
+              <div className="flex items-center justify-between p-3 gap-2 overflow-x-auto no-scrollbar">
+                  <div className="flex gap-2 shrink-0">
+                    {/* Trash */}
+                    <button 
+                        onClick={onClear} 
+                        disabled={!hasObjects}
+                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500 border border-gray-800' : 'text-red-400 bg-red-900/20 border border-red-900/50'}`}
                     >
-                        <div className={`${fontSizeClass} font-bold px-1 text-center truncate w-full`} style={{color}}>{displayChar}</div>
-                        {isActive && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full"></div>}
-                    </div>
-                  );
-              })}
-              <div className="w-6 flex-shrink-0"></div>
+                        🗑️
+                    </button>
+                    <button onClick={() => onSelectTool('energy')} className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'}`}>⚡</button>
+                    <button 
+                        onClick={() => !isLassoLocked && onSelectTool('lasso')} 
+                        disabled={isLassoLocked}
+                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30 border border-gray-800' : activeTool === 'lasso' ? 'bg-white/20 text-white border border-white/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
+                    >
+                        {isLassoLocked ? '🔒' : '𓎤'}
+                    </button>
+                  </div>
+                  
+                  <div className="flex-1"></div>
+
+                  <div className="flex gap-2 shrink-0">
+                    {/* Add */}
+                    <button 
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                        className="w-[72px] h-[72px] flex items-center justify-center bg-blue-600 rounded-xl text-white font-bold shadow-lg text-4xl active:scale-90 transition-transform pb-1"
+                    >
+                        +
+                    </button>
+                    
+                    {/* Help */}
+                    <button 
+                        onClick={onOpenHelp}
+                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700 relative overflow-hidden ${newHelpContent ? 'text-white border-white/50 shimmer-halo' : ''}`}
+                    >
+                        ?
+                    </button>
+
+                    {/* Settings */}
+                    <button 
+                        onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} 
+                        className="w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700"
+                    >
+                        ⚙️
+                    </button>
+
+                    {/* Fullscreen */}
+                    <button 
+                        onClick={toggleFullscreen} 
+                        className="w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700"
+                    >
+                        ⛶
+                    </button>
+                  </div>
+              </div>
           </div>
       </div>
       
@@ -541,6 +630,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                         title="Simulation Options"
                     >
                         ⚙️
+                    </button>
+                    <button 
+                        onClick={toggleFullscreen}
+                        className="w-8 h-8 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white hover:border-gray-500 flex items-center justify-center font-bold transition-all"
+                        title="Toggle Fullscreen"
+                    >
+                        ⛶
                     </button>
                 </div>
             </div>
@@ -618,7 +714,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}
                     `}
                 >
-                    <span className="text-xl">{isLassoLocked ? '🔒' : '𓎤/✋'}</span>
+                    <span className="text-xl">{isLassoLocked ? '🔒' : '𓎤'}</span>
                     <span className="font-bold text-[10px]">Lasso</span>
                 </button>
             </div>

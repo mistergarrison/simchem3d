@@ -86,6 +86,7 @@ const App: React.FC = () => {
 
   // Mobile layout state
   const [mobileBottomOffset, setMobileBottomOffset] = useState(150);
+  const [mobileTopOffset, setMobileTopOffset] = useState(80);
 
   // Track Atom Count for Conditional UI
   const [atomCount, setAtomCount] = useState(0);
@@ -337,12 +338,13 @@ const App: React.FC = () => {
         hasDiscoveredParticles={hasDiscoveredParticles}
         newlyUnlocked={newlyUnlocked}
         onLayoutHeightChange={setMobileBottomOffset}
+        onTopLayoutHeightChange={setMobileTopOffset}
         debugMode={debugMode}
         onToggleDebugMode={() => setDebugMode(!debugMode)}
         onClearStorage={handleClearStorage}
         hasObjects={atomCount > 0}
         discoveryProgress={{ current: currentDiscoveryCount, total: totalDiscoveryItems }}
-        discovered={discovered} // Pass discovered state
+        discovered={discovered} 
         newHelpContent={newHelpContent}
         colliderPhase={colliderPhase}
       />
@@ -362,6 +364,7 @@ const App: React.FC = () => {
             onUnlockParticle={handleUnlockParticle}
             onDiscovery={handleDiscovery}
             mobileBottomOffset={mobileBottomOffset}
+            mobileTopOffset={mobileTopOffset}
             debug={debugMode}
             energyCap={energyCap}
         />

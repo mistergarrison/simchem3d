@@ -29,8 +29,9 @@ interface EngineConfig {
     activeTool: ToolType;
     activeEntity: PaletteItem | null;
     mobileBottomOffset: number;
+    mobileTopOffset: number; // Added
     debug: boolean;
-    energyCap: number; // Current max energy in MeV
+    energyCap: number;
 }
 
 interface EngineCallbacks {
@@ -146,9 +147,6 @@ export class SimulationEngine {
         // Hard Cap at 400 GeV (400,000 MeV) absolute safety limit
         if (this.mouse.energyValue >= 400000) {
             this.mouse.energyValue = 400000;
-            // Auto release logic is only for max safe game limit, not user progression cap
-            // But if cap is 14 TeV, we might need higher absolute limit.
-            // Let's rely on config.energyCap for progression constraints.
         }
 
         // Find nearest target for UI feedback
@@ -374,8 +372,7 @@ export class SimulationEngine {
                     const c = this.mouse.compression;
                     
                     // Force Constants tuned for substeps
-                    // Removed pullStrength as per user request to rely on shrinking radius
-                    const wallStrength = 20.0 * dt; // Increased wall strength to ensure effective sweeping
+                    const wallStrength = 20.0 * dt; 
 
                     this.atoms.forEach(a => {
                         if (c.atomIds.has(a.id)) {
@@ -408,8 +405,17 @@ export class SimulationEngine {
                 }
 
                 // Integration with dt
-                // SCALE MOBILE BOTTOM OFFSET TO WORLD UNITS
-                Integrator.integrateAll(this.atoms, zForces, w, h, this.config.mobileBottomOffset * WORLD_SCALE, this.particles, dt);
+                // SCALE MOBILE TOP & BOTTOM OFFSET TO WORLD UNITS
+                Integrator.integrateAll(
+                    this.atoms, 
+                    zForces, 
+                    w, 
+                    h, 
+                    this.config.mobileTopOffset * WORLD_SCALE,
+                    this.config.mobileBottomOffset * WORLD_SCALE, 
+                    this.particles, 
+                    dt
+                );
             }
             
             // 3. POST-STEP (Visuals / Cleanup)

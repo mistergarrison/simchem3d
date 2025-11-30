@@ -18,8 +18,9 @@ interface CanvasProps {
   onUnlockParticle: (id: string) => void;
   onDiscovery: (discovery: Partial<DiscoveryState>) => void;
   mobileBottomOffset: number;
+  mobileTopOffset: number; // Added prop
   debug: boolean;
-  energyCap: number; // New prop
+  energyCap: number; 
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -36,6 +37,7 @@ const Canvas: React.FC<CanvasProps> = ({
   onUnlockParticle,
   onDiscovery,
   mobileBottomOffset,
+  mobileTopOffset,
   debug,
   energyCap
 }) => {
@@ -68,6 +70,7 @@ const Canvas: React.FC<CanvasProps> = ({
                   activeTool: typeof activeTool === 'string' ? activeTool : 'lasso',
                   activeEntity,
                   mobileBottomOffset,
+                  mobileTopOffset,
                   debug,
                   energyCap
               },
@@ -100,11 +103,12 @@ const Canvas: React.FC<CanvasProps> = ({
               activeTool: typeof activeTool === 'string' ? activeTool : 'lasso',
               activeEntity,
               mobileBottomOffset,
+              mobileTopOffset,
               debug,
               energyCap
           });
       }
-  }, [timeScale, showBonds, viewMode, activeTool, activeEntity, mobileBottomOffset, debug, energyCap]);
+  }, [timeScale, showBonds, viewMode, activeTool, activeEntity, mobileBottomOffset, mobileTopOffset, debug, energyCap]);
 
   // Handle Resize
   useEffect(() => {

@@ -205,9 +205,10 @@ export const integrateMotion = (
     zForceMap: Map<string, number>, 
     worldW: number, 
     worldH: number, 
+    safeAreaTop: number,
     safeAreaBottom: number,
     particles: Particle[],
     dt: number = 1.0
 ) => {
-    Integrator.integrateAll(atoms, zForceMap, worldW, worldH, safeAreaBottom, particles, dt);
+    Integrator.integrateAll(atoms, zForceMap, worldW, worldH, safeAreaTop, safeAreaBottom, particles, dt);
 };
