@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { PaletteItem, ToolType, GameMode, ColliderPhase, DiscoveryState } from '../../types/ui';
 import { AddEntityButtons } from './AddEntityButtons';
@@ -428,7 +429,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     onToggleGameMode={onToggleGameMode}
                     onRunTest={handleRunTest}
                     showDevTools={devMode}
-                    showLogo={true}
+                    showLogo={false}
                     onLogoClick={handleLogoClick}
                     onOpenHelp={onOpenHelp}
                     debugMode={debugMode}
@@ -446,6 +447,17 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* TOP HUD */}
       <div ref={mobileTopRef} className="lg:hidden absolute top-0 left-0 right-0 p-3 z-30 pointer-events-none flex flex-col gap-2">
           <div className="flex gap-2 w-full pointer-events-auto items-stretch h-14">
+              
+              {/* Logo - visible on mobile */}
+              <div 
+                  onClick={handleLogoClick}
+                  className="shrink-0 flex items-center justify-center rounded-xl bg-gray-900/80 backdrop-blur-md border border-gray-700 px-3 shadow-lg active:scale-95 transition-transform cursor-pointer select-none"
+              >
+                  <span className="text-xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent leading-tight text-center whitespace-nowrap">
+                      SimChem 3D
+                  </span>
+              </div>
+
               <button 
                   onClick={() => setIsLeaderboardOpen(true)}
                   className="w-14 h-14 shrink-0 flex items-center justify-center rounded-xl bg-gray-900/80 backdrop-blur-md border border-yellow-600/50 text-2xl shadow-lg active:scale-95 transition-transform"
@@ -606,7 +618,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-4 border-b border-gray-800 bg-gray-900/50 relative">
             <div className="flex justify-between items-center mb-4">
                 <div onClick={handleLogoClick} className="cursor-pointer select-none hover:opacity-80 transition-opacity">
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent whitespace-nowrap">SimChem 3D</h1>
                 </div>
                 
                 <div className="flex gap-2 items-center">

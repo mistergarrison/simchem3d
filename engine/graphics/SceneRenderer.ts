@@ -518,7 +518,7 @@ export class SceneRenderer {
                     alpha = label.life / label.fadeDuration;
                 }
                 
-                const yOffset = 30 + (label.maxLife - label.life) * 0.1; // Float up slightly
+                const yOffset = 40; // Fixed vertical offset (Stationary relative to atom)
 
                 ctx.save();
                 ctx.globalAlpha = alpha;

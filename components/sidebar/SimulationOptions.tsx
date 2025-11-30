@@ -48,7 +48,7 @@ export const SimulationOptions: React.FC<SimulationOptionsProps> = ({
             {showLogo && (
                  <div className="mb-2 pb-2 border-b border-gray-700 flex justify-between items-center">
                     <div onClick={onLogoClick} className="cursor-pointer select-none">
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">SimChem 3D</h1>
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent whitespace-nowrap">SimChem 3D</h1>
                     </div>
                     {/* Help button removed from here as it exists on the main toolbar */}
                 </div>
