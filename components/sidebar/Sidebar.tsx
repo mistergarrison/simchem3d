@@ -468,12 +468,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                        </div>
                    </div>
 
-                   {/* Collider Status */}
-                   {gameMode !== 'sandbox' && (
-                       <div className="flex-1 pointer-events-auto h-full min-w-0">
-                           <ColliderStatus phase={colliderPhase} gameMode={gameMode} className="w-full p-1 h-full shadow-lg text-[10px] flex flex-col justify-center" />
-                       </div>
-                   )}
+                   {/* Collider Status - ALWAYS VISIBLE NOW */}
+                   <div className="flex-1 pointer-events-auto h-full min-w-0">
+                       <ColliderStatus phase={colliderPhase} gameMode={gameMode} className="w-full p-1 h-full shadow-lg text-[10px] flex flex-col justify-center" />
+                   </div>
               </div>
           </div>
       </div>
@@ -484,6 +482,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="lg:hidden absolute bottom-0 left-0 right-0 flex flex-col pb-safe pointer-events-auto select-none"
       >
           {/* Palette Section (Collapsible, Above Toolbar) */}
+          {palette.length > 0 && (
           <div className="relative w-full">
               {/* Collapse Toggle Button */}
               <button 
@@ -538,36 +537,37 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </div>
               </div>
           </div>
+          )}
 
           {/* Mobile Toolbar Buttons */}
           <div className="bg-gray-950/90 backdrop-blur-md border-t border-gray-800">
-              <div className="flex items-center justify-between p-3 gap-2 overflow-x-auto no-scrollbar">
-                  <div className="flex gap-2 shrink-0">
+              <div className="flex items-center justify-between p-2 gap-2">
+                  <div className="flex gap-1.5 flex-[3] justify-start min-w-0">
                     {/* Trash */}
                     <button 
                         onClick={onClear} 
                         disabled={!hasObjects}
-                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500 border border-gray-800' : 'text-red-400 bg-red-900/20 border border-red-900/50'}`}
+                        className={`flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-xl sm:text-3xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500 border border-gray-800' : 'text-red-400 bg-red-900/20 border border-red-900/50'}`}
                     >
                         🗑️
                     </button>
-                    <button onClick={() => onSelectTool('energy')} className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'}`}>⚡</button>
+                    <button onClick={() => onSelectTool('energy')} className={`flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-xl sm:text-3xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'}`}>⚡</button>
                     <button 
                         onClick={() => !isLassoLocked && onSelectTool('lasso')} 
                         disabled={isLassoLocked}
-                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-3xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30 border border-gray-800' : activeTool === 'lasso' ? 'bg-white/20 text-white border border-white/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
+                        className={`flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-xl sm:text-3xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30 border border-gray-800' : activeTool === 'lasso' ? 'bg-white/20 text-white border border-white/50' : 'text-gray-400 bg-gray-800/50 border border-gray-700'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
                     >
                         {isLassoLocked ? '🔒' : '𓎤'}
                     </button>
                   </div>
                   
-                  <div className="flex-1"></div>
+                  <div className="w-2 sm:w-4 shrink-0"></div>
 
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex gap-1.5 flex-[4] justify-end min-w-0">
                     {/* Add */}
                     <button 
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-                        className="w-[72px] h-[72px] flex items-center justify-center bg-blue-600 rounded-xl text-white font-bold shadow-lg text-4xl active:scale-90 transition-transform pb-1"
+                        className="flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center bg-blue-600 rounded-xl text-white font-bold shadow-lg text-2xl sm:text-4xl active:scale-90 transition-transform pb-1"
                     >
                         +
                     </button>
@@ -575,7 +575,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* Help */}
                     <button 
                         onClick={onOpenHelp}
-                        className={`w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700 relative overflow-hidden ${newHelpContent ? 'text-white border-white/50 shimmer-halo' : ''}`}
+                        className={`flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl sm:text-3xl active:scale-90 transition-transform border border-gray-700 relative overflow-hidden ${newHelpContent ? 'text-white border-white/50 shimmer-halo' : ''}`}
                     >
                         ?
                     </button>
@@ -583,7 +583,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* Settings */}
                     <button 
                         onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} 
-                        className="w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700"
+                        className="flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl sm:text-3xl active:scale-90 transition-transform border border-gray-700"
                     >
                         ⚙️
                     </button>
@@ -591,7 +591,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* Fullscreen */}
                     <button 
                         onClick={toggleFullscreen} 
-                        className="w-[72px] h-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-3xl active:scale-90 transition-transform border border-gray-700"
+                        className="flex-1 aspect-square w-full max-w-[72px] flex items-center justify-center rounded-xl text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl sm:text-3xl active:scale-90 transition-transform border border-gray-700"
                     >
                         ⛶
                     </button>

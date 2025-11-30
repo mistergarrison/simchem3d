@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ColliderPhase } from '../../types/ui';
+import { COLLIDER_TECH_TREE } from '../../game/Progression';
 
 interface ColliderStatusProps {
     phase: ColliderPhase;
@@ -417,7 +417,8 @@ const ColliderVisual = ({ phaseId }: { phaseId: number }) => {
 export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode, className }) => {
     const [expanded, setExpanded] = useState(false);
 
-    if (gameMode === 'sandbox') return null;
+    // In Sandbox mode, we show the completed (MAX) state of the collider logic
+    const displayPhase = gameMode === 'sandbox' ? COLLIDER_TECH_TREE[COLLIDER_TECH_TREE.length - 1] : phase;
 
     const formatCap = (ev: number) => {
         if (ev < 0.001) return `${(ev * 1e6).toFixed(0)} eV`;
@@ -426,7 +427,7 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
         return `${(ev / 1000).toFixed(1)} GeV`;
     };
 
-    const details = PHASE_DETAILS[phase.id] || { status: "Unknown", next: "Unknown", why: "No data." };
+    const details = PHASE_DETAILS[displayPhase.id] || { status: "Unknown", next: "Unknown", why: "No data." };
 
     const baseClasses = "bg-gray-900/80 border border-yellow-500/30 rounded-lg shadow-lg backdrop-blur-sm text-left hover:bg-gray-800 transition-colors group relative overflow-hidden flex flex-col justify-center";
     const layoutClasses = className || "w-full p-2 mt-2 min-h-[50px]";
@@ -443,11 +444,11 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
                 
                 <div className="flex justify-between items-center relative z-10 w-full gap-2">
                     <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                        <span className="text-[9px] text-yellow-500 font-bold uppercase tracking-wider leading-none mb-1 whitespace-nowrap">Lvl {phase.id} • {phase.name}</span>
-                        <span className="text-[10px] text-gray-300 font-medium truncate leading-tight block w-full">{phase.nextUnlock === "Endgame" ? "Max Level" : `Next: ${phase.nextUnlock}`}</span>
+                        <span className="text-[9px] text-yellow-500 font-bold uppercase tracking-wider leading-none mb-1 whitespace-nowrap">Lvl {displayPhase.id} • {displayPhase.name}</span>
+                        <span className="text-[10px] text-gray-300 font-medium truncate leading-tight block w-full">{displayPhase.nextUnlock === "Endgame" ? "Max Level" : `Next: ${displayPhase.nextUnlock}`}</span>
                     </div>
                     <div className="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
-                        <span className="text-xs font-bold text-white font-mono leading-none">{formatCap(phase.capMeV)}</span>
+                        <span className="text-xs font-bold text-white font-mono leading-none">{gameMode === 'sandbox' ? '∞' : formatCap(displayPhase.capMeV)}</span>
                         <span className="text-[8px] text-gray-500 uppercase leading-tight mt-0.5">Cap</span>
                     </div>
                 </div>
@@ -468,7 +469,7 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
                                 <div>
                                     <h2 className="text-2xl font-bold text-white tracking-tight">Collider Status</h2>
                                     <div className="text-yellow-500 text-sm font-mono mt-1 uppercase tracking-widest">
-                                        Phase {phase.id}: {phase.name}
+                                        Phase {displayPhase.id}: {displayPhase.name}
                                     </div>
                                 </div>
                                 <button 
@@ -482,14 +483,14 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
                             {/* Visual Representation */}
                             <div className="bg-black/60 rounded-lg border border-gray-800 flex justify-center items-center h-40 overflow-hidden relative shadow-inner">
                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,0,0.05),_transparent_70%)]" />
-                                <ColliderVisual phaseId={phase.id} />
+                                <ColliderVisual phaseId={displayPhase.id} />
                             </div>
 
                             {/* Main Stats */}
                             <div className="bg-black/40 rounded-lg p-4 border border-gray-800 flex items-center justify-between">
                                 <div>
                                     <div className="text-gray-500 text-xs uppercase mb-1">Current Energy Cap</div>
-                                    <div className="text-3xl font-mono text-white font-bold">{formatCap(phase.capMeV)}</div>
+                                    <div className="text-3xl font-mono text-white font-bold">{gameMode === 'sandbox' ? 'UNLIMITED' : formatCap(displayPhase.capMeV)}</div>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-gray-500 text-xs uppercase mb-1">Output</div>
@@ -513,14 +514,14 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
                                     </p>
                                 </div>
 
-                                {phase.nextUnlock !== "Endgame" && (
+                                {displayPhase.nextUnlock !== "Endgame" && (
                                     <>
                                         <div>
                                             <h3 className="text-yellow-500 text-xs uppercase font-bold mb-2 flex items-center gap-2">
                                                 <span>🎯</span> Next Objective
                                             </h3>
                                             <div className="bg-yellow-900/10 border border-yellow-500/20 rounded-lg p-3">
-                                                <span className="text-white font-bold block mb-2 text-lg">{phase.nextUnlock}</span>
+                                                <span className="text-white font-bold block mb-2 text-lg">{displayPhase.nextUnlock}</span>
                                             </div>
                                         </div>
 
