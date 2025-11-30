@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { SM_PARTICLES } from '../../data/elements';
 import { GameMode } from '../../types/ui';
@@ -14,11 +13,20 @@ interface StandardModelPickerProps {
 const StandardModelPicker: React.FC<StandardModelPickerProps> = ({ isOpen, onClose, onSelect, gameMode, discoveredParticles }) => {
   if (!isOpen) return null;
 
+  const formatMass = (massMeV: number) => {
+      if (massMeV === 0) return null;
+      if (massMeV < 0.001) return `${(massMeV * 1e6).toFixed(0)} eV`;
+      if (massMeV < 1) return `${(massMeV * 1000).toFixed(0)} keV`;
+      if (massMeV > 1000) return `${(massMeV / 1000).toFixed(1)} GeV`;
+      return `${massMeV.toFixed(0)} MeV`;
+  };
+
   const renderParticle = (id: string, labelOverride?: string) => {
     const p = SM_PARTICLES.find(x => x.id === id);
     if (!p) return <div className="w-full h-20 bg-gray-900/50 rounded-md border border-gray-800" />;
 
     const isUnlocked = gameMode === 'sandbox' || discoveredParticles.has(p.id);
+    const massLabel = formatMass(p.massMeV);
     
     return (
       <button
@@ -44,7 +52,7 @@ const StandardModelPicker: React.FC<StandardModelPickerProps> = ({ isOpen, onClo
         <div className="text-lg font-bold mb-0.5" style={{ color: isUnlocked ? p.color : '#666' }}>{p.symbol}</div>
         <div className="text-[9px] text-gray-400 font-bold leading-none text-center px-1">{labelOverride || p.name}</div>
         <div className="text-[8px] text-gray-500 font-mono mt-1 opacity-70">
-            {p.massMeV < 1 ? `${(p.massMeV*1000).toFixed(0)} keV` : p.massMeV > 1000 ? `${(p.massMeV/1000).toFixed(1)} GeV` : `${p.massMeV.toFixed(0)} MeV`}
+            {massLabel}
         </div>
         
         {/* Lock Overlay */}
@@ -91,18 +99,18 @@ const StandardModelPicker: React.FC<StandardModelPickerProps> = ({ isOpen, onClo
             {renderParticle('photon')}
             <div className="w-full h-20" /> {/* Spacer */}
 
-            {/* Row 3: Neutrinos + Z Boson */}
-            {renderParticle('nu_e', 'e Neutrino')}
-            {renderParticle('nu_mu', 'μ Neutrino')}
-            {renderParticle('nu_tau', 'τ Neutrino')}
-            {renderParticle('z_boson')}
-            <div className="w-full h-20" /> {/* Spacer */}
-
-            {/* Row 4: Charged Leptons + W Boson */}
+            {/* Row 3: Charged Leptons + W Boson */}
             {renderParticle('electron')}
             {renderParticle('muon')}
             {renderParticle('tau')}
             {renderParticle('w_boson')}
+            <div className="w-full h-20" /> {/* Spacer */}
+
+            {/* Row 4: Neutrinos + Z Boson */}
+            {renderParticle('nu_e', 'e Neutrino')}
+            {renderParticle('nu_mu', 'μ Neutrino')}
+            {renderParticle('nu_tau', 'τ Neutrino')}
+            {renderParticle('z_boson')}
             <div className="w-full h-20" /> {/* Spacer */}
 
             {/* Row 5: Composite Hadrons Header */}
