@@ -430,7 +430,7 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
     const details = PHASE_DETAILS[displayPhase.id] || { status: "Unknown", next: "Unknown", why: "No data." };
 
     const baseClasses = "bg-gray-900/80 border border-yellow-500/30 rounded-lg shadow-lg backdrop-blur-sm text-left hover:bg-gray-800 transition-colors group relative overflow-hidden flex flex-col justify-center";
-    const layoutClasses = className || "w-full p-2 mt-2 min-h-[50px]";
+    const layoutClasses = className || "w-full px-2 py-1.5 mt-2 min-h-[50px]";
 
     return (
         <>
@@ -442,15 +442,26 @@ export const ColliderStatus: React.FC<ColliderStatusProps> = ({ phase, gameMode,
             >
                 <div className="absolute inset-0 bg-yellow-500/5 group-hover:bg-yellow-500/10 transition-colors" />
                 
-                <div className="flex justify-between items-center relative z-10 w-full gap-2">
-                    <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                        <span className="text-[9px] text-yellow-500 font-bold uppercase tracking-wider leading-none mb-1 whitespace-nowrap">Lvl {displayPhase.id} • {displayPhase.name}</span>
-                        <span className="text-[10px] text-gray-300 font-medium truncate leading-tight block w-full">{displayPhase.nextUnlock === "Endgame" ? "Max Level" : `Next: ${displayPhase.nextUnlock}`}</span>
+                <div className="relative z-10 w-full flex flex-col gap-0.5">
+                    
+                    {/* Row 1: Level */}
+                    <div className="text-[9px] text-yellow-500 font-bold uppercase tracking-wider leading-none truncate w-full">
+                        Lvl {displayPhase.id} <span className="opacity-50">•</span> {displayPhase.name}
                     </div>
-                    <div className="flex flex-col items-end shrink-0 pl-2 border-l border-white/10">
-                        <span className="text-xs font-bold text-white font-mono leading-none">{gameMode === 'sandbox' ? '∞' : formatCap(displayPhase.capMeV)}</span>
-                        <span className="text-[8px] text-gray-500 uppercase leading-tight mt-0.5">Cap</span>
+
+                    {/* Row 2: Next */}
+                    <div className="text-[10px] text-gray-300 font-medium truncate leading-tight w-full">
+                        {displayPhase.nextUnlock === "Endgame" ? "Max Level Reached" : <><span className="text-gray-500 text-[9px] uppercase font-bold mr-1">Next</span>{displayPhase.nextUnlock}</>}
                     </div>
+
+                    {/* Row 3: Cap */}
+                    <div className="flex items-baseline gap-2 leading-none w-full">
+                        <span className="text-[9px] text-gray-500 uppercase font-bold">Cap</span>
+                        <span className="text-[10px] font-bold text-white font-mono">
+                            {gameMode === 'sandbox' ? '∞' : formatCap(displayPhase.capMeV)}
+                        </span>
+                    </div>
+
                 </div>
             </button>
 

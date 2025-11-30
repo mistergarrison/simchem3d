@@ -453,7 +453,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={handleLogoClick}
                   className="shrink-0 flex items-center justify-center rounded-xl bg-gray-900/80 backdrop-blur-md border border-gray-700 px-3 shadow-lg active:scale-95 transition-transform cursor-pointer select-none"
               >
-                  <span className="text-xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent leading-tight text-center whitespace-nowrap">
+                  <span className="text-xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent leading-tight text-center whitespace-nowrap min-w-fit">
                       SimChem 3D
                   </span>
               </div>
