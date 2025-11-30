@@ -342,6 +342,7 @@ const App: React.FC = () => {
         onClearStorage={handleClearStorage}
         hasObjects={atomCount > 0}
         discoveryProgress={{ current: currentDiscoveryCount, total: totalDiscoveryItems }}
+        discovered={discovered} // Pass discovered state
         newHelpContent={newHelpContent}
         colliderPhase={colliderPhase}
       />

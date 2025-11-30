@@ -1,10 +1,11 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { PaletteItem, ToolType, GameMode, ColliderPhase } from '../../types/ui';
+import { PaletteItem, ToolType, GameMode, ColliderPhase, DiscoveryState } from '../../types/ui';
 import { AddEntityButtons } from './AddEntityButtons';
 import { SimulationOptions } from './SimulationOptions';
 import { PaletteItemView, formatHalfLife } from './PaletteItemView';
 import { ColliderStatus } from './ColliderStatus';
+import { DiscoveryOverview } from '../modals/DiscoveryOverview';
+import { LeaderboardModal } from '../modals/LeaderboardModal';
 
 interface SidebarProps {
   palette: PaletteItem[];
@@ -42,8 +43,9 @@ interface SidebarProps {
   onClearStorage?: () => void;
   hasObjects: boolean;
   discoveryProgress: { current: number, total: number };
+  discovered: DiscoveryState; // Added prop
   newHelpContent: boolean;
-  colliderPhase: ColliderPhase; // New Prop
+  colliderPhase: ColliderPhase;
 }
 
 interface TapState {
@@ -86,6 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClearStorage,
   hasObjects,
   discoveryProgress,
+  discovered,
   newHelpContent,
   colliderPhase
 }) => {
@@ -94,6 +97,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [isMobileOptionsOpen, setIsMobileOptionsOpen] = useState(false);
+  const [isDiscoveryOverviewOpen, setIsDiscoveryOverviewOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   
   // Secret Dev Mode Unlock
   const [devMode, setDevMode] = useState(false);
@@ -282,6 +287,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
 
+    <DiscoveryOverview 
+        isOpen={isDiscoveryOverviewOpen}
+        onClose={() => setIsDiscoveryOverviewOpen(false)}
+        discovery={discovered}
+        onResetProgress={onClearStorage}
+    />
+
+    <LeaderboardModal 
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        score={discoveryProgress.current}
+    />
+
     {/* Ghost Element for Drag */}
     {dragGhost && (
         <div 
@@ -367,7 +385,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               
               <div className="flex-1 mx-1 flex gap-1 items-center min-w-0">
                    {/* Compact Discoveries Bar (2/5ths) */}
-                   <div className="flex-[2] flex flex-col justify-center min-w-0" title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}>
+                   <div 
+                       onClick={() => setIsDiscoveryOverviewOpen(true)}
+                       className="flex-[2] flex flex-col justify-center min-w-0 cursor-pointer active:scale-95 transition-transform" 
+                       title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}
+                   >
                        <div className="text-[9px] text-gray-500 text-center mb-1 font-bold uppercase truncate">Discoveries {discoveryProgress.current}/{discoveryProgress.total}</div>
                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full">
                            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
@@ -437,6 +459,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <button 
+                    onClick={() => setIsLeaderboardOpen(true)}
+                    className="w-12 h-12 flex items-center justify-center rounded text-yellow-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform"
+                >
+                    🏆
+                </button>
+
+                <button 
                     onClick={onOpenHelp}
                     className={`w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform relative overflow-hidden ${newHelpContent ? 'text-white border border-white/50 shimmer-halo' : ''}`}
                 >
@@ -493,6 +522,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 
                 <div className="flex gap-2 items-center">
                     <button 
+                        onClick={() => setIsLeaderboardOpen(true)}
+                        className="w-8 h-8 rounded border border-gray-700 bg-gray-800 text-yellow-400 hover:bg-gray-700 hover:text-yellow-200 hover:border-gray-500 flex items-center justify-center font-bold transition-all"
+                        title="Leaderboard"
+                    >
+                        🏆
+                    </button>
+                    <button 
                         onClick={onOpenHelp}
                         className={`w-8 h-8 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white hover:border-gray-500 flex items-center justify-center font-bold transition-all relative overflow-hidden ${newHelpContent ? 'text-white border-white/50 shimmer-halo' : ''}`}
                         title="Help"
@@ -509,7 +545,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
             </div>
 
-            <div className="w-full">
+            <div 
+                className="w-full cursor-pointer hover:bg-gray-800/50 rounded p-1 -m-1 transition-colors"
+                onClick={() => setIsDiscoveryOverviewOpen(true)}
+            >
                 <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
                     <span>Discoveries</span>
                     <span>{discoveryProgress.current}/{discoveryProgress.total}</span>
