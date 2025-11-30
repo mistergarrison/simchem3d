@@ -19,6 +19,7 @@ interface CanvasProps {
   onDiscovery: (discovery: Partial<DiscoveryState>) => void;
   mobileBottomOffset: number;
   debug: boolean;
+  energyCap: number; // New prop
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -35,7 +36,8 @@ const Canvas: React.FC<CanvasProps> = ({
   onUnlockParticle,
   onDiscovery,
   mobileBottomOffset,
-  debug
+  debug,
+  energyCap
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<SimulationEngine | null>(null);
@@ -66,7 +68,8 @@ const Canvas: React.FC<CanvasProps> = ({
                   activeTool: typeof activeTool === 'string' ? activeTool : 'lasso',
                   activeEntity,
                   mobileBottomOffset,
-                  debug
+                  debug,
+                  energyCap
               },
               {
                   // Pass wrappers that delegate to the current ref
@@ -97,10 +100,11 @@ const Canvas: React.FC<CanvasProps> = ({
               activeTool: typeof activeTool === 'string' ? activeTool : 'lasso',
               activeEntity,
               mobileBottomOffset,
-              debug
+              debug,
+              energyCap
           });
       }
-  }, [timeScale, showBonds, viewMode, activeTool, activeEntity, mobileBottomOffset, debug]);
+  }, [timeScale, showBonds, viewMode, activeTool, activeEntity, mobileBottomOffset, debug, energyCap]);
 
   // Handle Resize
   useEffect(() => {

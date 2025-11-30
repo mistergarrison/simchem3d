@@ -18,7 +18,8 @@ export const resolveMolecularAssembly = (
     particles: Particle[], 
     mouse?: MouseState,
     forcedCenter?: {x: number, y: number, z: number},
-    initialVelocity?: {vx: number, vy: number, vz: number}
+    initialVelocity?: {vx: number, vy: number, vz: number},
+    preferredMolecule?: Molecule
 ) => {
     // 1. Identify atoms
     const pool = atoms.filter(a => subset.has(a.id));
@@ -80,12 +81,15 @@ export const resolveMolecularAssembly = (
     const zCounts = new Map<number, number>();
     pool.forEach(a => zCounts.set(a.element.z, (zCounts.get(a.element.z) || 0) + 1));
     
-    const exactMatch = MOLECULES.find(m => {
-        if (m.ingredients.length !== zCounts.size) return false;
-        return m.ingredients.every(ing => zCounts.get(ing.z) === ing.count);
-    });
+    // Helper to assign atoms to a molecule definition
+    const tryAssignToMolecule = (targetMol: Molecule): boolean => {
+        if (!targetMol.structure) return false;
+        
+        // Verify ingredients match first
+        if (targetMol.ingredients.length !== zCounts.size) return false;
+        const countsMatch = targetMol.ingredients.every(ing => zCounts.get(ing.z) === ing.count);
+        if (!countsMatch) return false;
 
-    if (exactMatch && exactMatch.structure) {
         // Verify we can map specific atoms to the structure slots
         const available = new Map<number, Atom[]>();
         pool.forEach(a => {
@@ -97,7 +101,7 @@ export const resolveMolecularAssembly = (
         const assignedAtoms: Atom[] = [];
         let validAssignment = true;
         
-        for (const z of exactMatch.structure.atoms) {
+        for (const z of targetMol.structure.atoms) {
             const list = available.get(z);
             if (list && list.length > 0) {
                 assignedAtoms.push(list.shift()!);
@@ -109,13 +113,27 @@ export const resolveMolecularAssembly = (
 
         if (validAssignment) {
             override = {
-                results: [{ molecule: exactMatch, atoms: assignedAtoms }],
+                results: [{ molecule: targetMol, atoms: assignedAtoms }],
                 leftovers: []
             };
+            return true;
+        }
+        return false;
+    };
+
+    // A. Preferred Match (User Intent / Test Intent)
+    if (preferredMolecule) {
+        tryAssignToMolecule(preferredMolecule);
+    }
+
+    // B. Default Exact Match (First found in DB)
+    if (!override) {
+        for (const mol of MOLECULES) {
+            if (tryAssignToMolecule(mol)) break;
         }
     }
 
-    // 6. Run Bonding Algorithm
+    // 6. Run Bonding Algorithm (Fallback to Energy Optimization)
     const { results, leftovers } = override || BondingOptimization.optimize(pool);
 
     // 7. Build Structures

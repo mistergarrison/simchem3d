@@ -1,3 +1,4 @@
+
 import { ElementData, SM_ParticleDef } from '../types/chemistry';
 
 // Special Subatomic "Elements"
@@ -33,13 +34,13 @@ export const SM_PARTICLES: SM_ParticleDef[] = [
     { id: 'charm', name: 'Charm Quark', symbol: 'c', massMeV: 1273, charge: 0.66, type: 'quark', color: '#FF0088', antiParticleId: 'anti-charm', pairThreshold: 2546 },
     { id: 'strange', name: 'Strange Quark', symbol: 's', massMeV: 93.5, charge: -0.33, type: 'quark', color: '#00FF88', antiParticleId: 'anti-strange', pairThreshold: 187 },
     { id: 'muon', name: 'Muon', symbol: 'μ⁻', massMeV: 105.66, charge: -1, type: 'lepton', color: '#DDDDDD', antiParticleId: 'anti-muon', pairThreshold: 211.32 },
-    { id: 'nu_mu', name: 'Muon Neutrino', symbol: 'νμ', massMeV: 0.17, charge: 0, type: 'lepton', color: '#AAAAAA' },
+    { id: 'nu_mu', name: 'Muon Neutrino', symbol: 'νμ', massMeV: 0.17, charge: 0, type: 'lepton', color: '#AAAAAA', antiParticleId: 'anti-nu_mu', pairThreshold: 0.34 },
 
     // --- GENERATION 3 ---
     { id: 'top', name: 'Top Quark', symbol: 't', massMeV: 172570, charge: 0.66, type: 'quark', color: '#FF00FF', antiParticleId: 'anti-top', pairThreshold: 345140 },
     { id: 'bottom', name: 'Bottom Quark', symbol: 'b', massMeV: 4183, charge: -0.33, type: 'quark', color: '#00FFFF', antiParticleId: 'anti-bottom', pairThreshold: 8366 },
     { id: 'tau', name: 'Tau', symbol: 'τ⁻', massMeV: 1776.93, charge: -1, type: 'lepton', color: '#BBBBBB', antiParticleId: 'anti-tau', pairThreshold: 3553.86 },
-    { id: 'nu_tau', name: 'Tau Neutrino', symbol: 'ντ', massMeV: 18.2, charge: 0, type: 'lepton', color: '#888888' },
+    { id: 'nu_tau', name: 'Tau Neutrino', symbol: 'ντ', massMeV: 18.2, charge: 0, type: 'lepton', color: '#888888', antiParticleId: 'anti-nu_tau', pairThreshold: 36.4 },
 
     // --- BOSONS ---
     { id: 'gluon', name: 'Gluon', symbol: 'g', massMeV: 0, charge: 0, type: 'boson', color: '#FFD700' },
@@ -49,8 +50,9 @@ export const SM_PARTICLES: SM_ParticleDef[] = [
     { id: 'higgs', name: 'Higgs Boson', symbol: 'H', massMeV: 125200, charge: 0, type: 'boson', color: '#FF00CC' },
 
     // --- HADRONS (Composite) ---
-    { id: 'proton', name: 'Proton', symbol: 'p⁺', massMeV: 938.27, charge: 1, type: 'hadron', color: '#FF3333' },
-    { id: 'neutron', name: 'Neutron', symbol: 'n', massMeV: 939.57, charge: 0, type: 'hadron', color: '#3333FF' },
+    // Note: Protons/Neutrons are set to Single Particle threshold (1x Mass) to align with Phase 4 (1.5 GeV) Cap vs 938 MeV Mass
+    { id: 'proton', name: 'Proton', symbol: 'p⁺', massMeV: 938.27, charge: 1, type: 'hadron', color: '#FF3333', pairThreshold: 938.27 },
+    { id: 'neutron', name: 'Neutron', symbol: 'n', massMeV: 939.57, charge: 0, type: 'hadron', color: '#3333FF', pairThreshold: 939.57 },
 
     // --- ANTI-PARTICLES ---
     { id: 'positron', name: 'Positron', symbol: 'e⁺', massMeV: 0.511, charge: 1, type: 'lepton', color: '#FF9999', antiParticleId: 'electron' },
@@ -61,10 +63,12 @@ export const SM_PARTICLES: SM_ParticleDef[] = [
     { id: 'anti-strange', name: 'Anti-Strange Quark', symbol: 's̄', massMeV: 93.5, charge: 0.33, type: 'quark', color: '#88FFCC', antiParticleId: 'strange' },
     { id: 'anti-muon', name: 'Anti-Muon', symbol: 'μ⁺', massMeV: 105.66, charge: 1, type: 'lepton', color: '#EEEEEE', antiParticleId: 'muon' },
     { id: 'anti-nu_e', name: 'Anti-Electron Neutrino', symbol: 'ν̄e', massMeV: 0.0000008, charge: 0, type: 'lepton', color: '#AAAAAA', antiParticleId: 'nu_e' },
+    { id: 'anti-nu_mu', name: 'Anti-Muon Neutrino', symbol: 'ν̄μ', massMeV: 0.17, charge: 0, type: 'lepton', color: '#AAAAAA', antiParticleId: 'nu_mu' },
     
     { id: 'anti-top', name: 'Anti-Top Quark', symbol: 't̄', massMeV: 172570, charge: -0.66, type: 'quark', color: '#FF88FF', antiParticleId: 'top' },
     { id: 'anti-bottom', name: 'Anti-Bottom Quark', symbol: 'b̄', massMeV: 4183, charge: 0.33, type: 'quark', color: '#88FFFF', antiParticleId: 'bottom' },
     { id: 'anti-tau', name: 'Anti-Tau', symbol: 'τ⁺', massMeV: 1776.93, charge: 1, type: 'lepton', color: '#DDDDDD', antiParticleId: 'tau' },
+    { id: 'anti-nu_tau', name: 'Anti-Tau Neutrino', symbol: 'ν̄τ', massMeV: 18.2, charge: 0, type: 'lepton', color: '#888888', antiParticleId: 'nu_tau' },
 ];
 
 export const getParticleElementData = (pid: string): ElementData => {

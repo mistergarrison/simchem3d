@@ -30,6 +30,7 @@ interface EngineConfig {
     activeEntity: PaletteItem | null;
     mobileBottomOffset: number;
     debug: boolean;
+    energyCap: number; // Current max energy in MeV
 }
 
 interface EngineCallbacks {
@@ -55,7 +56,7 @@ export class SimulationEngine {
     mouse: MouseState = {
         x: 0, y: 0, lastX: 0, lastY: 0, vx: 0, vy: 0,
         isDown: false, dragId: null, hoverId: null, hoverGroup: null, dragName: null,
-        energyActive: false, energyValue: 0, energyTarget: null,
+        energyActive: false, energyValue: 0, energyTarget: null, energyStrain: false,
         dragAnchor: null, dragGroup: new Set(), dragOffsets: new Map(),
         isLassoing: false, lassoPoints: [],
         moleculeHaloLife: 0, moleculeHaloMaxLife: 0, moleculeTarget: null,
@@ -118,7 +119,10 @@ export class SimulationEngine {
     }
 
     private updateEnergyTool() {
-        if (!this.mouse.energyActive) return;
+        if (!this.mouse.energyActive) {
+            this.mouse.energyStrain = false;
+            return;
+        }
 
         // Initialize or Grow
         // Starts at 1 eV (1e-6 MeV) to allow discovering low-mass particles like Neutrinos.
@@ -128,12 +132,23 @@ export class SimulationEngine {
             this.mouse.energyValue *= 1.005;
         }
 
-        // Hard Cap at 400 GeV (400,000 MeV)
-        // If reached, auto-trigger release
+        // Check against Cap
+        // Sandbox mode might set energyCap to Infinity, handle that safely
+        const cap = this.config.energyCap;
+        
+        if (this.mouse.energyValue >= cap) {
+            this.mouse.energyValue = cap;
+            this.mouse.energyStrain = true;
+        } else {
+            this.mouse.energyStrain = false;
+        }
+
+        // Hard Cap at 400 GeV (400,000 MeV) absolute safety limit
         if (this.mouse.energyValue >= 400000) {
             this.mouse.energyValue = 400000;
-            this.finalizeEnergyTool();
-            return;
+            // Auto release logic is only for max safe game limit, not user progression cap
+            // But if cap is 14 TeV, we might need higher absolute limit.
+            // Let's rely on config.energyCap for progression constraints.
         }
 
         // Find nearest target for UI feedback
@@ -142,7 +157,10 @@ export class SimulationEngine {
         let minDiff = Infinity;
 
         // SM_PARTICLES with pairThreshold are valid targets
-        const candidates = SM_PARTICLES.filter(p => p.pairThreshold !== undefined).map(p => p.pairThreshold!);
+        // Filter out targets above current CAP to avoid teasing impossible unlocks
+        const candidates = SM_PARTICLES
+            .filter(p => p.pairThreshold !== undefined && p.pairThreshold <= cap)
+            .map(p => p.pairThreshold!);
         
         for (const t of candidates) {
             const diff = Math.abs(val - t);
@@ -282,7 +300,8 @@ export class SimulationEngine {
         });
 
         groupAtoms.forEach(group => {
-            if (group && group.length > 1) {
+            // Allow discovery of monatomic molecules (Noble Gases) if they are in the DB
+            if (group && group.length >= 1) { 
                 const mol = identifyMoleculeData(group);
                 if (mol) {
                     discoveredMolecules.add(mol.id);
@@ -421,6 +440,8 @@ export class SimulationEngine {
                 const spawnCy = this.mouse.clearance.cy;
                 // Capture velocity BEFORE resolving
                 const spawnVelocity = this.mouse.clearance.velocity;
+                // Capture the INTENDED molecule
+                const intendedMolecule = this.mouse.clearance.molecule;
 
                 const newAtoms = resolveClearance(this.atoms, this.mouse, AtomFactory.create);
                 
@@ -439,6 +460,7 @@ export class SimulationEngine {
                     
                     // Trigger assembly logic to bond the new atoms.
                     // Pass the exact spawn coordinates to force the layout center.
+                    // Pass the intended molecule so assembly doesn't accidentally build an isomer (e.g. Ethanol instead of Dimethyl Ether)
                     resolveMolecularAssembly(
                         this.atoms, 
                         this.mouse.floatingLabels, 
@@ -446,7 +468,8 @@ export class SimulationEngine {
                         this.particles, 
                         this.mouse, 
                         {x: spawnCx, y: spawnCy, z: 0},
-                        spawnVelocity
+                        spawnVelocity,
+                        intendedMolecule || undefined
                     );
                 }
             }
@@ -476,6 +499,7 @@ export class SimulationEngine {
             this.config.showBonds,
             this.config.viewMode,
             this.input.getDragStart(),
+            this.config.energyCap,
             isMobile
         );
 
@@ -537,6 +561,7 @@ export class SimulationEngine {
     public finalizeEnergyTool() {
         const mouse = this.mouse;
         mouse.energyActive = false;
+        mouse.energyStrain = false;
         
         // Released logic
         const worldPos = this.viewport.unproject(mouse.x, mouse.y, 0);

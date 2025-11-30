@@ -17,12 +17,32 @@ export interface UserConfig {
         elements: boolean;
         molecules: boolean;
         lasso: boolean;
+        [key: string]: boolean; // Allow for future expansion
     };
     sliderValue: number;
     showBonds: boolean;
     viewMode: 'solid' | 'glass';
     debugMode: boolean;
 }
+
+const DEFAULT_CONFIG: UserConfig = {
+    gameMode: 'discovery',
+    discovered: {
+        elements: [],
+        molecules: [],
+        particles: []
+    },
+    newlyUnlocked: {
+        particles: false,
+        elements: false,
+        molecules: false,
+        lasso: false
+    },
+    sliderValue: 50,
+    showBonds: false,
+    viewMode: 'glass',
+    debugMode: false
+};
 
 export const saveUserConfig = (config: UserConfig) => {
     try {
@@ -36,7 +56,28 @@ export const loadUserConfig = (): UserConfig | null => {
     try {
         const data = localStorage.getItem(STORAGE_KEY);
         if (!data) return null;
-        return JSON.parse(data) as UserConfig;
+        
+        const loaded = JSON.parse(data);
+        
+        // Deep Merge Strategy for backward compatibility
+        // 1. Merge Top Level (overwriting defaults with loaded values)
+        const merged: UserConfig = {
+            ...DEFAULT_CONFIG,
+            ...loaded,
+            // 2. Merge Nested Objects explicitly to ensure new keys in Default are preserved
+            newlyUnlocked: {
+                ...DEFAULT_CONFIG.newlyUnlocked,
+                ...(loaded.newlyUnlocked || {})
+            },
+            // Discovered arrays are replaced, not merged, as we want the user's exact state
+            // However, we ensure the object structure exists
+            discovered: {
+                ...DEFAULT_CONFIG.discovered,
+                ...(loaded.discovered || {})
+            }
+        };
+
+        return merged;
     } catch (e) {
         console.warn('Failed to load config:', e);
         return null;

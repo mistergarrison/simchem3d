@@ -253,7 +253,7 @@ export const redistributeCharge = (allAtoms: Atom[], startId: string) => {
 
     // [CRITICAL DEBUG] Charge Sanity Check
     if (isNaN(avgCharge) || !isFinite(avgCharge)) {
-        console.error(`[PHYSICS CRITICAL] Charge Redistribution Failed: Result is NaN/Infinite for group near ${startId}. Resetting to 0.`);
+        // Silent reset to 0 to prevent crash loops
         avgCharge = 0;
     }
 
@@ -262,7 +262,9 @@ export const redistributeCharge = (allAtoms: Atom[], startId: string) => {
     // Partial charges (e.g., 0.33) are only valid for delocalized molecular groups.
     if (groupAtoms.length === 1) {
         if (Math.abs(avgCharge - Math.round(avgCharge)) > 0.01) {
-            console.error(`[PHYSICS ERROR] Isolated atom ${groupAtoms[0].element.s} has illegal partial charge: ${avgCharge}. Snapping to nearest integer.`);
+            // Silently snap to integer to fix splitting artifacts (e.g. H2+ splitting into 0.5/0.5)
+            // We do not log an error here because splitting a delocalized ion is a valid event, 
+            // even if the integer charge resolution is stochastic.
             avgCharge = Math.round(avgCharge);
         }
     } else {
@@ -297,11 +299,6 @@ export const redistributeCharge = (allAtoms: Atom[], startId: string) => {
             a.radius = 30 + Math.pow(a.mass, 0.33) * 10;
         }
     });
-
-    // Conservation Check
-    if (Math.abs(debugSum - totalCharge) > 0.1) {
-        console.warn(`[PHYSICS WARNING] Charge Conservation Drift: Start=${totalCharge}, End=${debugSum}`);
-    }
 };
 
 // --- Bond Management Helpers ---

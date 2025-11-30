@@ -11,7 +11,7 @@ import { ElementData, Molecule } from './types/chemistry';
 import { PaletteItem, ToolType, GameMode, DiscoveryState } from './types/ui';
 import { MOLECULES } from './data/molecules';
 import { saveUserConfig, loadUserConfig, clearUserConfig } from './game/Storage';
-import { processDiscovery } from './game/Progression';
+import { processDiscovery, getColliderPhase } from './game/Progression';
 
 // Define the default set of items for Sandbox mode
 const DEFAULT_PALETTE: PaletteItem[] = [
@@ -305,6 +305,10 @@ const App: React.FC = () => {
   const totalDiscoveryItems = useMemo(() => ELEMENTS.length + SM_PARTICLES.length + MOLECULES.length, []);
   const currentDiscoveryCount = discovered.elements.size + discovered.particles.size + discovered.molecules.size;
 
+  // Collider Tech Logic
+  const colliderPhase = useMemo(() => getColliderPhase(discovered), [discovered]);
+  const energyCap = gameMode === 'sandbox' ? Infinity : colliderPhase.capMeV;
+
   return (
     <div className="flex h-[100dvh] w-screen bg-black overflow-hidden font-sans">
       <Sidebar 
@@ -339,6 +343,7 @@ const App: React.FC = () => {
         hasObjects={atomCount > 0}
         discoveryProgress={{ current: currentDiscoveryCount, total: totalDiscoveryItems }}
         newHelpContent={newHelpContent}
+        colliderPhase={colliderPhase}
       />
       
       <div className="flex-grow relative bg-black cursor-crosshair">
@@ -357,6 +362,7 @@ const App: React.FC = () => {
             onDiscovery={handleDiscovery}
             mobileBottomOffset={mobileBottomOffset}
             debug={debugMode}
+            energyCap={energyCap}
         />
       </div>
 

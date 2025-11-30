@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { DiscoveryState, GameMode } from '../../types/ui';
 import { ELEMENTS, SM_PARTICLES } from '../../data/elements';
@@ -138,7 +139,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
     const progressPercent = Math.min(100, Math.round((discoveredCount / totalItems) * 100));
 
     const NAV_ITEMS: { id: PageId; label: string; icon: string; locked: boolean; color: string }[] = [
-        { id: 'basics', label: 'Lab Manual', icon: '🎮', locked: false, color: 'text-white' },
+        { id: 'basics', label: 'Overview', icon: '📋', locked: false, color: 'text-white' },
         { id: 'particles', label: 'Quantum Vacuum', icon: '⚡', locked: false, color: 'text-pink-400' },
         { id: 'hadrons', label: 'Hadronization', icon: '🧩', locked: !discoveredHadrons, color: 'text-violet-400' },
         { id: 'nuclear', label: 'Nuclear Physics', icon: '☢️', locked: !discoveredHadrons, color: 'text-orange-400' },
@@ -185,45 +186,112 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, discovery, gameM
         switch (activePage) {
             case 'basics': return (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
-                    <section className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                        <h3 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">🎮 Operating Procedures</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-300">
-                            <div>
-                                <h4 className="font-bold text-blue-400 uppercase text-xs mb-2">Manipulation</h4>
-                                <ul className="space-y-2">
-                                    <li>{renderText("Left Click / Drag: Grab atoms. Release while moving to 'throw' them with momentum.")}</li>
-                                    <li>{renderText("Scroll Wheel: Rotate the molecule currently under your cursor for 3D inspection.")}</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-purple-400 uppercase text-xs mb-2">Visualization</h4>
-                                <ul className="space-y-2">
-                                    <li>{renderText("View Mode: Toggle between 'Solid' (easier to see) and 'Glass' (internal structure).")}</li>
-                                    <li>{renderText("Z-Plane: The simulation applies a weak restoration force to keep atoms near the center plane (Z=0) so they don't drift into the void.")}</li>
-                                </ul>
-                            </div>
-                        </div>
+                    <section className="bg-blue-900/20 p-6 rounded-lg border border-blue-500/30">
+                        <h3 className="text-xl font-bold text-blue-400 mb-4 border-b border-blue-500/30 pb-2">🚀 Mission Overview</h3>
+                        <p className="text-base text-gray-300 leading-relaxed mb-4">
+                            {renderText("Welcome to the SimChem 3D Collider Facility. Your objective is to reconstruct the material universe from first principles. Starting with nothing but the quantum vacuum, you must generate fundamental particles, forge atomic nuclei via the strong force, and synthesize complex molecules.")}
+                        </p>
+                        <p className="text-base text-gray-300 leading-relaxed">
+                            {renderText("Progress is governed by your")} <strong className="text-yellow-400">Collider Technology Level</strong>. {renderText("Your facility has a maximum Energy Cap. You cannot create particles heavier than this limit. To upgrade the collider and raise the cap, you must demonstrate mastery of the current energy scale by completing specific discovery objectives.")}
+                        </p>
                     </section>
 
-                    <section className="bg-yellow-900/10 p-6 rounded-lg border border-yellow-500/20">
-                        <h3 className="text-xl font-bold text-yellow-500 mb-4 border-b border-yellow-500/20 pb-2">🛠️ Laboratory Tools</h3>
-                        <div className="space-y-6 text-sm text-gray-300">
-                            <div>
-                                <strong className="text-white block mb-1 text-lg">⚡ Energy tool</strong>
-                                <p>{renderText("Injects raw energy into the vacuum field. Holding the button increases local energy density (measured in electron-volts). If you hit a resonance frequency, the vacuum may decay into real particles.")}</p>
+                    <section className="bg-gray-800/50 p-6 rounded-lg border border-gray-700">
+                        <h3 className="text-xl font-bold text-white mb-6 border-b border-gray-700 pb-2">🖥️ Interface Guide</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            
+                            {/* Left Column: Tools */}
+                            <div className="space-y-6">
+                                <div>
+                                    <h4 className="font-bold text-blue-400 uppercase text-xs mb-3 tracking-wider">Main Toolbar</h4>
+                                    <div className="space-y-3">
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-xl shrink-0 border border-gray-600">⚡</div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Energy Tool</strong>
+                                                <p className="text-xs text-gray-400">Injects energy to create matter. Hold to charge, release to spawn particles.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-xl shrink-0 border border-gray-600">𓎤</div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Lasso / Hand</strong>
+                                                <p className="text-xs text-gray-400">Selects multiple atoms for molecular assembly. Acts as a move tool for groups.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-red-900/30 rounded text-xl shrink-0 border border-red-900/50 text-red-400">🗑️</div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Clear</strong>
+                                                <p className="text-xs text-gray-400">Removes all atoms and particles from the simulation workspace.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 className="font-bold text-purple-400 uppercase text-xs mb-3 tracking-wider">Catalog Access</h4>
+                                    <div className="flex gap-2">
+                                        <div className="flex flex-col items-center gap-1 w-16">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-lg border border-gray-600 text-pink-400">✨</div>
+                                            <span className="text-[10px] text-gray-400">Particles</span>
+                                        </div>
+                                        <div className="flex flex-col items-center gap-1 w-16">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-lg border border-gray-600 text-blue-400">⚛️</div>
+                                            <span className="text-[10px] text-gray-400">Atoms</span>
+                                        </div>
+                                        <div className="flex flex-col items-center gap-1 w-16">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-lg border border-gray-600 text-purple-400">⚗️</div>
+                                            <span className="text-[10px] text-gray-400">Molecules</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
-                            {discoveredMolecules ? (
+                            {/* Right Column: System & Controls */}
+                            <div className="space-y-6">
                                 <div>
-                                    <strong className="text-white block mb-1 text-lg">𓎤 Bonding loop</strong>
-                                    <p>{renderText("Draw a loop around multiple atoms to select them. If the selected ingredients match a known recipe, the Bonding loop acts as a 'nano-assembler', using force-directed algorithms to fold the atoms into a valid Molecule.")}</p>
+                                    <h4 className="font-bold text-yellow-400 uppercase text-xs mb-3 tracking-wider">System Status</h4>
+                                    <div className="space-y-3">
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-900 rounded shrink-0 border border-gray-700">
+                                                <div className="w-6 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
+                                            </div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Discovery Bar</strong>
+                                                <p className="text-xs text-gray-400">Tracks progress towards unlocking all 118 elements and compounds.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-yellow-900/20 rounded shrink-0 border border-yellow-600/50">
+                                                <span className="text-[10px] font-bold text-yellow-500">LVL</span>
+                                            </div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Collider Status</strong>
+                                                <p className="text-xs text-gray-400">Displays Energy Cap and upgrade objectives. Click to view details.</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-700 rounded text-xl shrink-0 border border-gray-600">⚙️</div>
+                                            <div>
+                                                <strong className="text-white block text-sm">Options</strong>
+                                                <p className="text-xs text-gray-400">Control Time Scale, Toggle Glass/Solid view, and Toggle Bonds.</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="opacity-50 flex items-center gap-2 py-2 bg-gray-900/50 rounded px-3 border border-dashed border-gray-700">
-                                    <span className="text-xl">🔒</span>
-                                    <span className="text-gray-500 italic">Advanced assembly tools are currently offline. Synthesize your first molecule to unlock.</span>
+
+                                <div>
+                                    <h4 className="font-bold text-green-400 uppercase text-xs mb-3 tracking-wider">Input Controls</h4>
+                                    <ul className="text-xs text-gray-300 space-y-2 list-disc list-inside bg-black/20 p-3 rounded">
+                                        <li><strong className="text-white">Spawn:</strong> Left Click / Tap empty space.</li>
+                                        <li><strong className="text-white">Throw:</strong> Drag an atom and release while moving.</li>
+                                        <li><strong className="text-white">Rotate:</strong> Scroll Wheel (Desktop) or 2-Finger Twist (Mobile).</li>
+                                        <li><strong className="text-white">Edit:</strong> Click isotope number or Long Press atom.</li>
+                                    </ul>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     </section>
                 </div>

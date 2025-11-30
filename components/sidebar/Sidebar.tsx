@@ -1,9 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { PaletteItem, ToolType, GameMode } from '../../types/ui';
+import { PaletteItem, ToolType, GameMode, ColliderPhase } from '../../types/ui';
 import { AddEntityButtons } from './AddEntityButtons';
 import { SimulationOptions } from './SimulationOptions';
 import { PaletteItemView, formatHalfLife } from './PaletteItemView';
+import { ColliderStatus } from './ColliderStatus';
 
 interface SidebarProps {
   palette: PaletteItem[];
@@ -42,6 +43,7 @@ interface SidebarProps {
   hasObjects: boolean;
   discoveryProgress: { current: number, total: number };
   newHelpContent: boolean;
+  colliderPhase: ColliderPhase; // New Prop
 }
 
 interface TapState {
@@ -84,7 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClearStorage,
   hasObjects,
   discoveryProgress,
-  newHelpContent
+  newHelpContent,
+  colliderPhase
 }) => {
   const [editingItem, setEditingItem] = useState<PaletteItem | null>(null);
   const [dragGhost, setDragGhost] = useState<{ item: PaletteItem, x: number, y: number, startY: number } | null>(null);
@@ -343,35 +346,45 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="lg:hidden absolute bottom-0 left-0 right-0 bg-gray-950/90 backdrop-blur-md border-t border-gray-800 flex flex-col pb-safe pointer-events-auto select-none"
       >
           {/* Mobile Toolbar */}
-          <div className="flex items-center justify-between p-3 border-b border-white/10 gap-2">
-              <div className="flex gap-2 shrink-0">
+          <div className="flex items-center justify-between p-2 border-b border-white/10 gap-1">
+              <div className="flex gap-1 shrink-0">
                 <button 
                     onClick={onClear} 
                     disabled={!hasObjects}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-xl active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-lg active:scale-90 transition-transform ${!hasObjects ? 'opacity-30 cursor-not-allowed bg-transparent text-gray-500' : 'text-red-400 bg-red-900/20'}`}
                 >
                     🗑️
                 </button>
-                <button onClick={() => onSelectTool('energy')} className={`w-12 h-12 flex items-center justify-center rounded text-xl active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
+                <button onClick={() => onSelectTool('energy')} className={`w-12 h-12 flex items-center justify-center rounded text-lg active:scale-90 transition-transform ${activeTool === 'energy' ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-400'}`}>⚡</button>
                 <button 
                     onClick={() => !isLassoLocked && onSelectTool('lasso')} 
                     disabled={isLassoLocked}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-xl relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30' : activeTool === 'lasso' ? 'bg-white/20 text-white' : 'text-gray-400'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-lg relative overflow-hidden active:scale-90 transition-transform ${isLassoLocked ? 'opacity-30' : activeTool === 'lasso' ? 'bg-white/20 text-white' : 'text-gray-400'} ${newlyUnlocked.lasso ? 'shimmer-halo' : ''}`}
                 >
                     {isLassoLocked ? '🔒' : '𓎤/✋'}
                 </button>
               </div>
               
-              <div className="flex-1 mx-2 flex flex-col justify-center min-w-0" title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}>
-                   <div className="text-[10px] text-gray-500 text-center mb-1 font-bold uppercase truncate">Discoveries {discoveryProgress.current} / {discoveryProgress.total}</div>
-                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full">
-                       <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
+              <div className="flex-1 mx-1 flex gap-1 items-center min-w-0">
+                   {/* Compact Discoveries Bar (2/5ths) */}
+                   <div className="flex-[2] flex flex-col justify-center min-w-0" title={`${discoveryProgress.current}/${discoveryProgress.total} discovered`}>
+                       <div className="text-[9px] text-gray-500 text-center mb-1 font-bold uppercase truncate">Discoveries {discoveryProgress.current}/{discoveryProgress.total}</div>
+                       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden w-full">
+                           <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500" style={{width: `${discoveryPercent}%`}}></div>
+                       </div>
                    </div>
+                   
+                   {/* Collider Status - Expands to fill available space (3/5ths) */}
+                   {gameMode !== 'sandbox' && (
+                       <div className="flex-[3] min-w-0">
+                           <ColliderStatus phase={colliderPhase} gameMode={gameMode} className="w-full p-1 h-10 min-h-[40px]" />
+                       </div>
+                   )}
               </div>
 
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-1 shrink-0">
                 <div className="relative">
-                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded text-white font-bold shadow-lg text-2xl active:scale-90 transition-transform">
+                    <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded text-white font-bold shadow-lg text-xl active:scale-90 transition-transform">
                         <span className="pb-1">+</span>
                     </button>
                     {isMobileMenuOpen && (
@@ -394,7 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 
                 <div className="relative">
-                    <button onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} className="w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl active:scale-90 transition-transform">⚙️</button>
+                    <button onClick={() => setIsMobileOptionsOpen(!isMobileOptionsOpen)} className="w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform">⚙️</button>
                     {isMobileOptionsOpen && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsMobileOptionsOpen(false)} />
@@ -425,7 +438,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 <button 
                     onClick={onOpenHelp}
-                    className={`w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-xl active:scale-90 transition-transform relative overflow-hidden ${newHelpContent ? 'text-white border border-white/50 shimmer-halo' : ''}`}
+                    className={`w-12 h-12 flex items-center justify-center rounded text-gray-400 bg-gray-800/50 hover:bg-gray-800 text-lg active:scale-90 transition-transform relative overflow-hidden ${newHelpContent ? 'text-white border border-white/50 shimmer-halo' : ''}`}
                 >
                     ?
                 </button>
@@ -531,6 +544,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="p-5 border-b border-gray-800 space-y-4 relative">
+            
+            <ColliderStatus phase={colliderPhase} gameMode={gameMode} />
+
             <div className="grid grid-cols-3 gap-2">
                 <button 
                     onClick={onClear} 

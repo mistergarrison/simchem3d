@@ -82,7 +82,66 @@ export class BondForce {
     private static snapBond(atoms: Atom[], a: Atom, b: Atom, mouse: MouseState) {
         breakBond(atoms, a, b.id);
         killRelatedLabels(mouse.floatingLabels, a.id, b.id);
+        
+        // --- CHARGE CONSERVATION FIX ---
+        // If atoms have fractional charges (e.g. 0.5 from H2+), we must decide who keeps the electron(s)
+        // to ensure that when redistributeCharge runs on the fragments, the sum is conserved integers.
+        const qA = a.charge || 0;
+        const qB = b.charge || 0;
+        const total = qA + qB;
+        
+        // Only intervene if we have non-integers that sum to an integer (splitting a delocalized ion)
+        if (Math.abs(total % 1) < 0.05 && (Math.abs(qA % 1) > 0.05 || Math.abs(qB % 1) > 0.05)) {
+            const enA = BondForce.getElectronegativity(a.element.z);
+            const enB = BondForce.getElectronegativity(b.element.z);
+            
+            // Higher Electronegativity means more affinity for electrons -> Lower Charge
+            // If EN is equal, randomize.
+            const favorsA = enA > enB || (enA === enB && Math.random() > 0.5);
+            
+            // Split 'total' into two integers.
+            // Example: Total=1 (e.g. 0.5, 0.5). Split into 0 and 1.
+            // Winner (High EN) gets lower charge (0). Loser gets higher charge (1).
+            
+            let newQA = Math.floor(qA);
+            let newQB = Math.ceil(qB);
+            
+            // Ensure sum matches
+            if (newQA + newQB !== Math.round(total)) {
+                newQA = Math.ceil(qA);
+                newQB = Math.floor(qB);
+            }
+            
+            const low = Math.min(newQA, newQB);
+            const high = Math.max(newQA, newQB);
+            
+            if (favorsA) {
+                a.charge = low;
+                b.charge = high;
+            } else {
+                a.charge = high;
+                b.charge = low;
+            }
+        }
+
         redistributeCharge(atoms, a.id);
         redistributeCharge(atoms, b.id);
+    }
+
+    private static getElectronegativity(z: number): number {
+        // Simplified Pauling scale for common elements
+        switch(z) {
+            case 1: return 2.20; // H
+            case 6: return 2.55; // C
+            case 7: return 3.04; // N
+            case 8: return 3.44; // O
+            case 9: return 3.98; // F
+            case 15: return 2.19; // P
+            case 16: return 2.58; // S
+            case 17: return 3.16; // Cl
+            case 35: return 2.96; // Br
+            case 53: return 2.66; // I
+            default: return 2.0; // Generic
+        }
     }
 }

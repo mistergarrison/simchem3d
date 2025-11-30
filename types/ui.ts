@@ -45,6 +45,14 @@ export interface DiscoveryState {
     particles: Set<string>;  // Particle IDs
 }
 
+export interface ColliderPhase {
+    id: number;
+    name: string;
+    capMeV: number; // Energy Cap in MeV
+    description: string;
+    nextUnlock: string; // Hint for next unlock
+}
+
 export interface SimulationEvent {
     type: 'create' | 'destroy';
     atomId: string;
@@ -81,6 +89,7 @@ export interface MouseState {
     energyActive: boolean;
     energyValue: number;       // Current MeV accumulated
     energyTarget: number | null; // Nearest target (visual feedback)
+    energyStrain: boolean;     // True if user hits the cap
     
     // --- DRAG ANCHOR ---
     // Stores the offset between the mouse position and the atom's center at the moment of click.

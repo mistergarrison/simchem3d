@@ -27,6 +27,7 @@ export class SceneRenderer {
         showBonds: boolean,
         viewMode: 'solid' | 'glass', 
         dragStart: {x: number, y: number, time: number} | null,
+        energyCap: number,
         isMobile: boolean = false
     ) {
         this.ctx = ctx;
@@ -42,7 +43,7 @@ export class SceneRenderer {
         // 1. Draw UI Layers (Bottom)
         this.drawLasso(mouse);
         this.drawLaunchDrag(mouse, dragStart);
-        this.drawEnergyGauge(mouse, isMobile);
+        this.drawEnergyGauge(mouse, isMobile, energyCap);
         this.drawClearanceRing(mouse);
         this.drawCompressionRing(mouse);
         this.drawMoleculeHalo(mouse);
@@ -184,11 +185,20 @@ export class SceneRenderer {
         draw(2, '#FFFFFF', 0.5);
     }
 
-    private drawEnergyGauge(mouse: MouseState, isMobile: boolean) {
+    private drawEnergyGauge(mouse: MouseState, isMobile: boolean, energyCap: number) {
         if (!this.ctx || !mouse.energyActive) return;
         const ctx = this.ctx;
         const val = mouse.energyValue;
         const target = mouse.energyTarget;
+        const isStrained = mouse.energyStrain;
+
+        // Apply Jitter if strained
+        let gx = mouse.x;
+        let gy = mouse.y;
+        if (isStrained) {
+            gx += (Math.random() - 0.5) * 6;
+            gy += (Math.random() - 0.5) * 6;
+        }
 
         // Gauge Sizing: Desktop is significantly smaller than mobile
         const radius = isMobile ? 50 : 16;
@@ -197,9 +207,9 @@ export class SceneRenderer {
         const labelOffset = isMobile ? 90 : 35;
         const targetRadius = isMobile ? 70 : 24;
 
-        ctx.shadowColor = '#FFD700'; 
+        ctx.shadowColor = isStrained ? '#FF0000' : '#FFD700'; 
         ctx.shadowBlur = isMobile ? 20 : 10;
-        ctx.fillStyle = '#FFD700';
+        ctx.fillStyle = isStrained ? '#FF4444' : '#FFD700';
         ctx.font = `bold ${fontSize}px Inter, sans-serif`;
         ctx.textAlign = "center";
         
@@ -211,7 +221,13 @@ export class SceneRenderer {
         else label = `${(val / 1000).toFixed(2)} GeV`;
 
         // Render Value Text ABOVE the gauge
-        ctx.fillText(label, mouse.x, mouse.y - labelOffset);
+        ctx.fillText(label, gx, gy - labelOffset);
+        
+        if (isStrained) {
+            ctx.font = `bold ${fontSize * 0.7}px Inter, sans-serif`;
+            ctx.fillStyle = '#FF0000';
+            ctx.fillText("LIMIT REACHED", gx, gy - labelOffset - (isMobile ? 25 : 15));
+        }
 
         // --- GAUGE ARC (270 degrees) ---
         // Gap at the bottom (90 degrees / South)
@@ -219,43 +235,67 @@ export class SceneRenderer {
         // End: 405 degrees (South-West) -> 2.25 PI
         const startAngle = 0.75 * Math.PI; 
         const endAngle = 2.25 * Math.PI;   
-
-        // Draw Background Track
-        ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, radius, startAngle, endAngle);
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
-        ctx.stroke();
-
-        // Logarithmic Fill
-        const minLog = -6; 
-        const maxLog = 5.6; 
-        const currentLog = Math.log10(Math.max(1e-7, val));
-        const normalized = Math.max(0, Math.min(1, (currentLog - minLog) / (maxLog - minLog)));
-        
         const totalSpan = endAngle - startAngle;
-        const currentFillEnd = startAngle + (normalized * totalSpan);
+
+        // Logarithmic Fill Calculations
+        const minLog = -6; // 10^-6 MeV (1 eV)
+        const maxLog = 5.6; // 10^5.6 MeV (~400 GeV)
         
+        const getNormalized = (v: number) => {
+            const safeV = Math.max(1e-7, v);
+            const logV = Math.log10(safeV);
+            return Math.max(0, Math.min(1, (logV - minLog) / (maxLog - minLog)));
+        };
+
+        const currentNorm = getNormalized(val);
+        const currentFillEnd = startAngle + (currentNorm * totalSpan);
+        
+        const capNorm = getNormalized(energyCap);
+        const capAngle = startAngle + (capNorm * totalSpan);
+
+        // 1. Draw Background Track
         ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, radius, startAngle, currentFillEnd);
+        ctx.arc(gx, gy, radius, startAngle, endAngle);
         ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = '#FFD700';
+        ctx.strokeStyle = isStrained ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 215, 0, 0.2)';
         ctx.stroke();
+
+        // 2. Draw Active Fill
+        ctx.beginPath();
+        ctx.arc(gx, gy, radius, startAngle, currentFillEnd);
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = isStrained ? '#FF0000' : '#FFD700';
+        ctx.stroke();
+
+        // 3. Draw Cap Limit Marker (if reachable)
+        if (energyCap < 400000) {
+            const cx = gx + Math.cos(capAngle) * (radius + lineWidth);
+            const cy = gy + Math.sin(capAngle) * (radius + lineWidth);
+            const cx2 = gx + Math.cos(capAngle) * (radius - lineWidth);
+            const cy2 = gy + Math.sin(capAngle) * (radius - lineWidth);
+            
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx2, cy2);
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         // Target Indicator
         if (target) {
             const diff = Math.abs(val - target);
-            if (diff / target < 0.15) {
+            if (diff / target < 0.15 && !isStrained) {
                 // Lock feedback
                 ctx.beginPath();
-                ctx.arc(mouse.x, mouse.y, targetRadius, startAngle, endAngle);
+                ctx.arc(gx, gy, targetRadius, startAngle, endAngle);
                 ctx.strokeStyle = '#00FF00';
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 
                 if (isMobile) {
                     ctx.fillStyle = '#00FF00';
-                    ctx.fillText("RELEASE!", mouse.x, mouse.y - labelOffset - 30);
+                    ctx.fillText("RELEASE!", gx, gy - labelOffset - 30);
                 }
             }
         }
@@ -379,13 +419,14 @@ export class SceneRenderer {
         return { items, atomProjMap, groups };
     }
 
-    private drawSceneItems(items: RenderItem[], mouse: MouseState, viewMode: 'solid'|'glass', atomProjMap: Map<string, ProjectedPoint>) {
+    private drawSceneItems(items: RenderItem[], mouse: MouseState, viewMode: 'solid' | 'glass', atomProjMap: Map<string, ProjectedPoint>) {
         if (!this.ctx) return;
         const ctx = this.ctx;
 
         items.forEach(item => {
             if (item.type === 'bond') {
-                BondRenderer.draw(ctx, item.data.a, item.data.b, item.data.pA, item.data.pB, viewMode);
+                const { a, b, pA, pB } = item.data;
+                BondRenderer.draw(ctx, a, b, pA, pB, viewMode);
             } else {
                 const { atom, proj, groupIndex, groups } = item.data;
                 const group = groupIndex !== undefined ? groups[groupIndex] : undefined;
@@ -398,114 +439,93 @@ export class SceneRenderer {
         if (!this.ctx || !this.viewport) return;
         const ctx = this.ctx;
 
-        groups.forEach(g => {
-            if (g.count > 1 && Math.abs(g.charge) > 0.1) {
-                const p = this.viewport!.project(g.cx, g.cy, g.cz, 0);
-                if (p) {
-                    const q = Math.round(g.charge);
-                    let label = '';
-                    if (q > 0) label = `+${q}`;
-                    else if (q < 0) label = `${q}`;
-                    
-                    if (Math.abs(g.charge - q) > 0.1 && q === 0) {
-                        label = g.charge > 0 ? `+${g.charge.toFixed(1)}` : `${g.charge.toFixed(1)}`;
-                    }
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-                    if (label !== '' && label !== '0' && label !== '-0' && label !== '+0') {
-                        ctx.font = "bold 14px Inter, sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "top";
-                        ctx.fillStyle = "#FFFFFF";
-                        ctx.shadowColor = 'rgba(0,0,0,1)';
-                        ctx.shadowBlur = 4;
-                        ctx.fillText(label, p.x, p.y + 15);
-                        ctx.shadowBlur = 0;
-                    }
+        groups.forEach(g => {
+            // Only draw net charge label if it's non-neutral and has multiple atoms
+            if (g.count > 1 && Math.abs(g.charge) > 0.01) {
+                const p = this.viewport.project(g.cx, g.cy, g.cz, 0);
+                if (p) {
+                    const chg = Math.round(g.charge);
+                    if (chg === 0) return; // Don't show partial floating charges, only integer nets
+                    
+                    const str = chg > 0 ? `+${chg}` : `${chg}`;
+                    const color = chg > 0 ? '#FF3333' : '#3388FF';
+                    
+                    ctx.fillStyle = color;
+                    ctx.shadowColor = 'black';
+                    ctx.shadowBlur = 4;
+                    ctx.fillText(str, p.x + 15, p.y - 15);
+                    ctx.shadowBlur = 0;
                 }
             }
         });
     }
 
     private drawParticles(particles: Particle[]) {
-        if (!this.ctx || particles.length === 0 || !this.viewport) return;
+        if (!this.ctx || !this.viewport) return;
         const ctx = this.ctx;
         
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter'; 
+        // Additive blending for particles
+        ctx.globalCompositeOperation = 'lighter';
+
         particles.forEach(p => {
-            const proj = this.viewport!.project(p.x, p.y, p.z || 0, p.size); 
+            const proj = this.viewport!.project(p.x, p.y, p.z, p.size);
             if (proj) {
-                ctx.globalAlpha = p.life;
-                ctx.beginPath();
-                ctx.arc(proj.x, proj.y, Math.max(0.1, proj.r), 0, Math.PI * 2);
+                const alpha = p.life / p.maxLife;
                 ctx.fillStyle = p.color;
+                ctx.globalAlpha = alpha;
+                
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, proj.r, 0, Math.PI * 2);
                 ctx.fill();
             }
         });
-        ctx.restore();
+
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
     }
 
     private drawDragLabels(mouse: MouseState, atomProjMap: Map<string, ProjectedPoint>) {
-        if (!this.ctx || !mouse.dragName || mouse.dragGroup.size === 0) return;
-        const ctx = this.ctx;
-
-        let sumX = 0, minY = Infinity, count = 0;
-        mouse.dragGroup.forEach(id => {
-            const p = atomProjMap.get(id);
-            if (p) {
-                sumX += p.x;
-                const topEdge = p.y - p.r;
-                if (topEdge < minY) minY = topEdge;
-                count++;
-            }
-        });
-        if (count > 0) {
-            const centerX = sumX / count;
-            const textY = minY - 25;
-            ctx.font = "bold 16px Inter, sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "alphabetic";
-            ctx.fillStyle = "#ffffff";
-            ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
-            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-            ctx.strokeText(mouse.dragName, centerX, textY);
-            ctx.fillText(mouse.dragName, centerX, textY);
-            ctx.shadowBlur = 0;
+        if (!this.ctx || !mouse.dragId || !mouse.dragName) return;
+        
+        // If dragging, show the molecule name above the cursor
+        const p = atomProjMap.get(mouse.dragId);
+        if (p) {
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = 'bold 14px Inter, sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.shadowColor = 'black';
+            this.ctx.shadowBlur = 4;
+            this.ctx.fillText(mouse.dragName, p.x, p.y - p.r - 15);
+            this.ctx.shadowBlur = 0;
         }
     }
 
     private drawFloatingLabels(mouse: MouseState, atomProjMap: Map<string, ProjectedPoint>) {
-        if (!this.ctx || mouse.floatingLabels.length === 0) return;
+        if (!this.ctx) return;
         const ctx = this.ctx;
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px Inter, sans-serif';
 
         mouse.floatingLabels.forEach(label => {
-            let sumX = 0, minY = Infinity, count = 0;
-            label.atomIds.forEach(id => {
-                const p = atomProjMap.get(id);
-                if (p) {
-                    sumX += p.x;
-                    const topEdge = p.y - p.r;
-                    if (topEdge < minY) minY = topEdge;
-                    count++;
+            const p = atomProjMap.get(label.targetId);
+            if (p) {
+                let alpha = 1.0;
+                if (label.life < label.fadeDuration) {
+                    alpha = label.life / label.fadeDuration;
                 }
-            });
-            if (count > 0) {
-                const centerX = sumX / count;
-                const textY = minY - 25;
-                let opacity = 1.0;
-                if (label.life < label.fadeDuration) opacity = label.life / label.fadeDuration;
-                opacity = Math.max(0, Math.min(1, opacity));
                 
+                const yOffset = 30 + (label.maxLife - label.life) * 0.1; // Float up slightly
+
                 ctx.save();
-                ctx.globalAlpha = opacity;
-                ctx.font = "bold 16px Inter, sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "alphabetic";
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 4;
-                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-                ctx.strokeText(label.text, centerX, textY);
-                ctx.fillText(label.text, centerX, textY);
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 4;
+                ctx.fillText(label.text, p.x, p.y - p.r - yOffset);
                 ctx.restore();
             }
         });
