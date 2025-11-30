@@ -1,15 +1,17 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import Sidebar from './components/Sidebar';
-import Canvas from './components/Canvas';
-import PeriodicTable from './components/PeriodicTable';
-import MoleculePicker from './components/RecipePicker'; // Note: File name retained, component renamed
-import StandardModelPicker from './components/StandardModelPicker';
-import HelpModal from './components/HelpModal';
-import { ELEMENTS, ELECTRON_ELEM, PROTON_ELEM, NEUTRON_ELEM, SM_PARTICLES } from './elements';
-import { ElementData, PaletteItem, Molecule, ToolType, SM_ParticleDef, GameMode, DiscoveryState } from './types';
-import { MOLECULES } from './molecules';
-import { saveUserConfig, loadUserConfig, clearUserConfig } from './storage';
+import Sidebar from './components/sidebar/Sidebar';
+import Canvas from './components/viewport/Canvas';
+import PeriodicTable from './components/modals/PeriodicTable';
+import MoleculePicker from './components/modals/MoleculePicker';
+import ParticlePicker from './components/modals/ParticlePicker';
+import HelpModal from './components/modals/HelpModal';
+import { ELEMENTS, PROTON_ELEM, NEUTRON_ELEM, SM_PARTICLES } from './data/elements';
+import { ElementData, Molecule } from './types/chemistry';
+import { PaletteItem, ToolType, GameMode, DiscoveryState } from './types/ui';
+import { MOLECULES } from './data/molecules';
+import { saveUserConfig, loadUserConfig, clearUserConfig } from './game/Storage';
+import { processDiscovery } from './game/Progression';
 
 // Define the default set of items for Sandbox mode
 const DEFAULT_PALETTE: PaletteItem[] = [
@@ -30,8 +32,7 @@ const App: React.FC = () => {
   // Load Config from Storage
   const initialConfig = useMemo(() => loadUserConfig(), []);
 
-  // Initialize palette with a unified mix of Particles, Atoms, and defaults
-  // In Discovery Mode, we start empty to force experimentation via the Energy Tool.
+  // Initialize palette
   const [palette, setPalette] = useState<PaletteItem[]>(() => {
       if (initialConfig?.gameMode === 'sandbox') return DEFAULT_PALETTE;
       return [];
@@ -139,90 +140,46 @@ const App: React.FC = () => {
   // --- DISCOVERY HANDLER ---
   const handleDiscovery = useCallback((newFindings: Partial<DiscoveryState>) => {
       setDiscovered(prev => {
-          let changed = false;
-          const next = { ...prev };
-          const newUnlocksUpdates: Partial<typeof newlyUnlocked> = {};
+          const result = processDiscovery(prev, newFindings, gameMode);
           
-          // Separate sets for Help Logic delta calculation
-          const newUnseenHelp = new Set<string>();
+          if (result.hasChanges) {
+              // Handle Unlocks (Halos)
+              const unlocks = result.newlyUnlocked;
+              if (Object.values(unlocks).some(Boolean)) {
+                  setNewlyUnlocked(curr => {
+                      const nextState = { ...curr };
+                      (Object.keys(unlocks) as Array<keyof typeof unlocks>).forEach(k => {
+                          if (unlocks[k]) nextState[k] = true;
+                      });
+                      return nextState;
+                  });
 
-          // Check for Help Unlocks logic
-          // 1. Quantum Vacuum (Particles) - ANY particle
-          const prevQuantum = prev.particles.size > 0;
-          
-          if (newFindings.elements) {
-              const wasEmpty = prev.elements.size <= 1; // H is often free or default
-              newFindings.elements.forEach(e => {
-                  if (!prev.elements.has(e)) { next.elements = new Set(next.elements).add(e); changed = true; }
-              });
-              // Help Unlock: Nuclear Physics (Elements > 1)
-              if (wasEmpty && next.elements.size > 1 && gameMode === 'discovery') {
-                  newUnlocksUpdates.elements = true;
-                  newUnseenHelp.add('nuclear');
-              }
-          }
-          
-          if (newFindings.particles) {
-              const wasEmpty = prev.particles.size === 0;
-              newFindings.particles.forEach(p => {
-                  if (!prev.particles.has(p)) { next.particles = new Set(next.particles).add(p); changed = true; }
-              });
-              
-              if (wasEmpty && next.particles.size > 0 && gameMode === 'discovery') {
-                  newUnlocksUpdates.particles = true;
+                  // Set 60s timers to auto-clear halos
+                  Object.keys(unlocks).forEach(k => {
+                      const key = k as keyof typeof unlocks;
+                      if (unlocks[key]) {
+                          if (unlockTimerRef.current[key]) clearTimeout(unlockTimerRef.current[key]);
+                          unlockTimerRef.current[key] = setTimeout(() => {
+                              setNewlyUnlocked(curr => ({ ...curr, [key]: false }));
+                          }, 60000);
+                      }
+                  });
               }
 
-              // Help Unlock: Quantum Vacuum (Any Particle)
-              const nextQuantum = next.particles.size > 0;
-              if (!prevQuantum && nextQuantum) {
-                  newUnseenHelp.add('particles');
+              // Handle Help Content
+              if (result.newHelpSections.length > 0) {
+                  setUnseenHelpSections(curr => {
+                      const nextSet = new Set(curr);
+                      result.newHelpSections.forEach(s => nextSet.add(s));
+                      return nextSet;
+                  });
+                  setNewHelpContent(true);
               }
 
-              // Help Unlock: Hadrons (Proton/Neutron)
-              const prevHadrons = prev.particles.has('proton') || prev.particles.has('neutron');
-              const nextHadrons = next.particles.has('proton') || next.particles.has('neutron');
-              if (!prevHadrons && nextHadrons) {
-                  newUnseenHelp.add('hadrons');
-              }
+              return result.updatedDiscovery;
           }
           
-          if (newFindings.molecules) {
-              const wasEmpty = prev.molecules.size === 0;
-              newFindings.molecules.forEach(m => {
-                  if (!prev.molecules.has(m)) { next.molecules = new Set(next.molecules).add(m); changed = true; }
-              });
-              // Help Unlock: Chemistry
-              if (wasEmpty && next.molecules.size > 0 && gameMode === 'discovery') {
-                  newUnlocksUpdates.molecules = true;
-                  newUnlocksUpdates.lasso = true; // Lasso unlocks with first molecule
-                  newUnseenHelp.add('chemistry');
-              }
-          }
-
-          // Apply Halo updates if any
-          if (Object.keys(newUnlocksUpdates).length > 0) {
-              setNewlyUnlocked(curr => ({ ...curr, ...newUnlocksUpdates }));
-              
-              // Set 60s timers to auto-clear halos
-              Object.keys(newUnlocksUpdates).forEach(key => {
-                  if (unlockTimerRef.current[key]) clearTimeout(unlockTimerRef.current[key]);
-                  unlockTimerRef.current[key] = setTimeout(() => {
-                      setNewlyUnlocked(curr => ({ ...curr, [key]: false }));
-                  }, 60000);
-              });
-          }
-
-          // Apply New Help Content using Functional Update to avoid stale closures
-          if (newUnseenHelp.size > 0) {
-              setUnseenHelpSections(curr => {
-                  const nextSet = new Set(curr);
-                  newUnseenHelp.forEach(s => nextSet.add(s));
-                  return nextSet;
-              });
-              setNewHelpContent(true);
-          }
-
-          return changed ? next : prev;
+          return prev;
       });
   }, [gameMode]);
 
@@ -418,7 +375,7 @@ const App: React.FC = () => {
         gameMode={gameMode}
         discoveredMolecules={discovered.molecules}
       />
-      <StandardModelPicker 
+      <ParticlePicker 
         isOpen={isStandardModelOpen} 
         onClose={() => setIsStandardModelOpen(false)} 
         onSelect={handleAddParticle}

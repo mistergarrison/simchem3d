@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { GameMode } from '../../types';
+import { GameMode } from '../../types/ui';
 
 interface SimulationOptionsProps {
     sliderValue: number;
